@@ -1,0 +1,26 @@
+Licence HP-Plumber (basée sur MIT, non commerciale)
+
+Copyright (c) 2026 Christophe NOCITO
+
+L'autorisation est accordée, gratuitement, à toute personne obtenant une copie
+de ce logiciel et des fichiers de documentation associés (le "Logiciel"), de
+traiter le Logiciel sans restriction, y compris sans limitation les droits
+d'utiliser, de copier, de modifier, de fusionner, de publier, de distribuer et
+de sous-licencier des copies du Logiciel, et de permettre aux personnes
+auxquelles le Logiciel est fourni de le faire, sous réserve des conditions
+suivantes :
+
+1. L'avis de copyright ci-dessus et cet avis d'autorisation doivent être
+   inclus dans toutes les copies ou parties substantielles du Logiciel.
+
+2. Le Logiciel, en tout ou en partie, modifié ou non, ne peut PAS être vendu,
+   revendu, loué, ni utilisé à des fins commerciales. La distribution doit
+   rester gratuite.
+
+LE LOGICIEL EST FOURNI "EN L'ÉTAT", SANS GARANTIE D'AUCUNE SORTE, EXPRESSE OU
+IMPLICITE, Y COMPRIS MAIS SANS S'Y LIMITER LES GARANTIES DE QUALITÉ MARCHANDE,
+D'ADÉQUATION À UN USAGE PARTICULIER ET D'ABSENCE DE CONTREFAÇON. EN AUCUN CAS
+LES AUTEURS OU TITULAIRES DU COPYRIGHT NE POURRONT ÊTRE TENUS RESPONSABLES DE
+TOUTE RÉCLAMATION, DOMMAGES OU AUTRE RESPONSABILITÉ, QUE CE SOIT DANS LE
+CADRE D'UN CONTRAT, D'UN DÉLIT OU AUTREMENT, DÉCOULANT DE, OU EN RELATION AVEC
+LE LOGICIEL OU L'UTILISATION OU D'AUTRES MANIPULATIONS DU LOGICIEL.
