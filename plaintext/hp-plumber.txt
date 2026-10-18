@@ -1,0 +1,2510 @@
+// ============================================================
+// MARIO - HP Prime
+// Flat globals, no nested tables, no ELSE IF on one line
+// ============================================================
+
+EXPORT MARIO()
+BEGIN
+END;
+
+// ============================================================
+// GLOBAL VARIABLES
+// ============================================================
+
+SCORE := 0;
+LIVES := 3;
+COINS := 0;
+BIG := 0;
+userLives := 3;
+userDifficulty := 2;
+GAMESTATE := 0;
+TITLETIMER := 0;
+NEXTSTATE := 0;
+PAUSED := 0;
+ACTIVE_LEVEL := 1;
+DARK_MODE := 0;
+MAX_LEVEL := 5;
+
+
+// ============================================================
+// APP VERSION
+// ============================================================
+APP_VERSION := "v1.0";
+
+// Mario state
+MX := 40; MY := 160; VX := 0; VY := 0; CAMX := 0;
+ONGROUND := 1; MH := 16; DIR := 1;
+WALKFRAME := 0; JUMPHOLD := 0; STATE := 0; DEATHTIMER := 0;
+PX := 0; PY := 0;
+
+// Physics
+GRAV := 0.45; JUMPV := -7.8; MAXSPD := 3.0;
+ACCEL := 0.22; FRICTION := 0.14;
+
+// Level
+MAX_X := 720;
+FLAGX := 690; FLAGY := 96;
+PIT1S := 0; PIT1E := 0; PIT2S := 0; PIT2E := 0;
+NEXT_LVL := 0;
+ENDSCREEN := 0; ENDTIMER := 0;
+JUMPSPRITE := 0; JUMPSPEED := 0;
+
+// Objects (three generic pickup slots: A, B, C)
+OAON := 0; OAT := 0; OAX := 0; OAY := 0; OAVY := 0; OATIM := 0;
+OBON := 0; OBT := 0; OBX := 0; OBY := 0; OBVY := 0; OBTIM := 0;
+OCON := 0; OCT := 0; OCX := 0; OCY := 0; OCVY := 0; OCTIM := 0;
+
+// Enemies (8 slots, flat variables)
+E1X := 0; E1Y := 0; E1DIR := -1; E1ALIVE := 0; E1FRAME := 0; E1TYPE := 1;
+E2X := 0; E2Y := 0; E2DIR := -1; E2ALIVE := 0; E2FRAME := 0; E2TYPE := 1;
+E3X := 0; E3Y := 0; E3DIR := -1; E3ALIVE := 0; E3FRAME := 0; E3TYPE := 1;
+E4X := 0; E4Y := 0; E4DIR := -1; E4ALIVE := 0; E4FRAME := 0; E4TYPE := 1;
+E5X := 0; E5Y := 0; E5DIR := -1; E5ALIVE := 0; E5FRAME := 0; E5TYPE := 1;
+E6X := 0; E6Y := 0; E6DIR := -1; E6ALIVE := 0; E6FRAME := 0; E6TYPE := 1;
+E7X := 0; E7Y := 0; E7DIR := -1; E7ALIVE := 0; E7FRAME := 0; E7TYPE := 1;
+E8X := 0; E8Y := 0; E8DIR := -1; E8ALIVE := 0; E8FRAME := 0; E8TYPE := 1;
+NENEMIES := 0;
+
+// Colors
+SKY1 := {92,148,252}; SKY2 := {124,176,252};
+HILL1 := {0,168,0}; HILL2 := {60,200,60};
+SOL1 := {200,76,12}; SOL2 := {232,116,40};
+NUA := {255,255,255};
+DRAP1 := {0,100,0}; DRAP2 := {255,216,0};
+
+// ============================================================
+// 3x5 FONT FOR HUD
+// ============================================================
+ALLP := {
+  {{1,1,1},{1,0,1},{1,0,1},{1,0,1},{1,1,1}},
+  {{0,1,0},{1,1,0},{0,1,0},{0,1,0},{1,1,1}},
+  {{1,1,1},{0,0,1},{1,1,1},{1,0,0},{1,1,1}},
+  {{1,1,1},{0,0,1},{1,1,1},{0,0,1},{1,1,1}},
+  {{1,0,1},{1,0,1},{1,1,1},{0,0,1},{0,0,1}},
+  {{1,1,1},{1,0,0},{1,1,1},{0,0,1},{1,1,1}},
+  {{1,1,1},{1,0,0},{1,1,1},{1,0,1},{1,1,1}},
+  {{1,1,1},{0,0,1},{0,1,0},{0,1,0},{0,1,0}},
+  {{1,1,1},{1,0,1},{1,1,1},{1,0,1},{1,1,1}},
+  {{1,1,1},{1,0,1},{1,1,1},{0,0,1},{1,1,1}}
+};
+
+// Floating coins (slots)
+P1ON := 0; P1X := 0; P1Y := 0;
+P2ON := 0; P2X := 0; P2Y := 0;
+P3ON := 0; P3X := 0; P3Y := 0;
+P4ON := 0; P4X := 0; P4Y := 0;
+P5ON := 0; P5X := 0; P5Y := 0;
+
+// Bonus lives (slots)
+L1ON := 0; L1X := 0; L1Y := 0;
+L2ON := 0; L2X := 0; L2Y := 0;
+
+LANGUE := 1;   // default French, updated in START
+
+
+// ============================================================
+// GET LANGUAGE FROM SYSTEM
+// 3 = French, 5 = Spanish, else English
+// ============================================================
+// Reads the calculator's system Language setting and maps it to the
+// game's internal language code: 1 = French, 2 = English, 3 = Spanish.
+// Falls back to English (2) for any other system language.
+GetLangue()
+BEGIN
+  IF Language == 3 THEN
+    RETURN 1;   // French
+  END;
+  IF Language == 5 THEN
+    RETURN 3;   // Spanish
+  END;
+  RETURN 2;     // English (default)
+END;
+
+// ============================================================
+// LANGUAGE TABLE - all game texts (FR / EN / ES)
+// Index 1: key, 2: French, 3: English, 4: Spanish
+// ============================================================
+LANG_TABLE := {
+  {"START",            "Appuyez sur ENTER",                 "Press ENTER",              "Pulse ENTER"},
+  {"HP_PRIME_EDITION", "HP PRIME EDITION",                  "HP PRIME EDITION",         "HP PRIME EDITION"},
+  {"HELP_TITLE",       "MARIO - Commandes",                 "MARIO - Controls",         "MARIO - Controles"},
+  {"HELP_LEFT",        "7 = gauche",                        "7 = left",                 "7 = izquierda"},
+  {"HELP_RIGHT",       "8 = droite",                        "8 = right",                "8 = derecha"},
+  {"HELP_JUMP",        "2 ou 30 = saut",                    "2 or 30 = jump",           "2 o 30 = saltar"},
+  {"HELP_QUIT",        "4 = quitter",                       "4 = quit",                 "4 = salir"},
+  {"HELP_SYMB",        "Symb = ecran titre",                "Symb = title screen",      "Symb = pantalla de título"},
+  {"HELP_PLOT",        "Plot = jouer",                      "Plot = play",              "Plot = jugar"},
+  {"HELP_HINT",        "Appuyez sur une touche",            "Press any key",            "Pulse cualquier tecla"},
+  {"PAUSE",            "PAUSE",                             "PAUSE",                    "PAUSA"},
+  {"PAUSE_HINT",       "Appuyez sur ENTER",                 "Press ENTER",              "Pulse ENTER"},
+  {"LEVEL_END_HINT",   "Appuyez sur ENTER",                 "Press ENTER",              "Pulse ENTER"},
+  {"GAME_OVER_TITLE",  "GAME OVER",                         "GAME OVER",                "FIN DEL JUEGO"},
+  {"SCORE",            "SCORE : ",                          "SCORE : ",                 "PUNTOS : "},
+  {"PRESS_KEY",        "Appuyez sur une touche",            "Press any key",            "Pulse cualquier tecla"},
+  {"WON_TITLE",        "BRAVO !",                           "CONGRATULATIONS!",         "¡FELICIDADES!"},
+  {"WON_LINE1",        "Vous avez termine le jeu !",        "You completed the game !", "¡Has completado el juego!"},
+  {"SETUP_TITLE",      "Mario Setup",                       "Mario Setup",              "Configuración de Mario"},
+  {"SETUP_LIVES",      "Vies",                              "Lives",                    "Vidas"},
+  {"SETUP_LIVES_DESC", "Nombre de vies au depart",          "Number of lives at start", "Número de vidas al inicio"},
+  {"SETUP_LANG",       "Langue",                            "Language",                 "Idioma"},
+  {"LANG_FR",          "Francais",                          "French",                   "Francés"},
+  {"LANG_EN",          "Anglais",                           "English",                  "Inglés"},
+  {"LANG_ES",          "Espagnol",                          "Spanish",                  "Español"},
+  {"ABOUT_TITLE",      "HP-PLUMBER",                        "HP-PLUMBER",               "HP-PLUMBER"},
+  {"ABOUT_SUBTITLE",   "HP Prime Edition",                  "HP Prime Edition",         "HP Prime Edition"},
+  {"ABOUT_AUTHOR",     "Christophe NOCITO",                 "Christophe NOCITO",        "Christophe NOCITO"},
+  {"ABOUT_YEAR",       "Annee : 2026",                      "Year : 2026",              "Año : 2026"}
+};
+
+// ============================================================
+// TRANSLATION FUNCTION - returns the text for the current language
+// ============================================================
+// Translation lookup. Searches LANG_TABLE for the row whose key equals
+// `cle` and returns the text for the currently selected LANGUE.
+// Returns "?<key>" if the key is not found, which aids debugging.
+T(cle)
+BEGIN
+  LOCAL I, n;
+  n := SIZE(LANG_TABLE);
+  FOR I FROM 1 TO n DO
+    IF LANG_TABLE(I, 1) == cle THEN
+      IF LANGUE == 2 THEN
+        RETURN LANG_TABLE(I, 3);   // English
+      END;
+      IF LANGUE == 3 THEN
+        RETURN LANG_TABLE(I, 4);   // Spanish
+      END;
+      RETURN LANG_TABLE(I, 2);     // French (default)
+    END;
+  END;
+  RETURN "?" + cle;
+END;
+
+// ============================================================
+// LEVEL DATA (flat: table of tables, depth 2)
+// ============================================================
+
+// {MAX_X, FLAG_X, FLAG_Y, PIT1S, PIT1E, PIT2S, PIT2E, NEXT_LEVEL,
+//  NENEMIES, GRAV, JUMPV, MAXSPD, ACCEL, FRICTION}
+LEVEL_META := {
+  {720, 690, 96, 0, 0, 0, 0, 2, 3, 0.45, -7.0, 3.5, 0.22, 0.14},
+  {900, 850, 96, 340, 380, 600, 650, 0, 4, 0.45, -7.0, 5.5, 0.35, 0.22}
+};
+
+// Blocks: table (per level) of tables {x, y, type, hit}
+LEVEL_BLOCKS := {
+  {
+    {256, 128, 2, 0}, {272, 128, 1, 0}, {288, 128, 2, 0},
+    {304, 128, 1, 0}, {320, 128, 2, 0}, {288,  96, 2, 0},
+    {400, 160, 4, 0}, {416, 160, 4, 0},
+    {512, 160, 4, 0}, {528, 160, 4, 0}
+  },
+  {
+    {200, 128, 2, 0}, {216, 128, 1, 0}, {232, 128, 2, 0},
+    {248, 128, 1, 0}, {264, 128, 2, 0}, {280, 128, 1, 0},
+    {296, 128, 2, 0}, {312, 128, 1, 0},
+    {248,  96, 2, 0}, {280,  96, 2, 0},
+    {440, 128, 2, 0}, {456, 128, 1, 0}, {472, 128, 2, 0},
+    {488, 128, 1, 0}, {504, 128, 2, 0},
+    {448,  96, 2, 0}, {496,  96, 2, 0},
+    {560, 160, 4, 0}, {576, 160, 4, 0},
+    {680, 160, 4, 0}, {696, 160, 4, 0},
+    {740, 128, 2, 0}, {756, 128, 1, 0}, {772, 128, 2, 0}
+  }
+};
+
+// Enemies per level: table of tables
+// {x, y, dir, alive, frame, type, speed, minX, maxX}
+// Note: patrol bounds (speed, minX, maxX) are hardcoded in StepEnemy call.
+LEVEL_ENEMIES := {
+  {
+    {220, 160, -1, 1, 0, 1, 1.2, 200, 300},
+    {380, 160, -1, 1, 0, 1, 1.2, 350, 396},
+    {480, 160, -1, 1, 0, 2, 1.4, 450, 508}
+  },
+  {
+    {180, 160, -1, 1, 0, 1, 1.4, 170, 240},
+    {260, 160, -1, 1, 0, 1, 1.2, 250, 330},
+    {420, 160, -1, 1, 0, 1, 1.5, 410, 530},
+    {540, 160, -1, 1, 0, 1, 1.3, 530, 556}
+  }
+};
+
+// Colors per level: {SKY1, SKY2, HILL1, HILL2, SOL1, SOL2, NUA, DRAP1, DRAP2}
+LEVEL_COLORS := {
+  {
+    {92,148,252}, {124,176,252},
+    {0,168,0}, {60,200,60},
+    {200,76,12}, {232,116,40},
+    {255,255,255},
+    {0,100,0}, {255,216,0}
+  },
+  {
+    {60,100,180}, {80,120,200},
+    {0,120,0}, {0,150,0},
+    {100,40,10}, {150,70,20},
+    {200,200,220},
+    {0,100,0}, {255,100,100}
+  }
+};
+
+
+// Same as LEVEL_COLORS but colors are 50% darker (for pause)
+LEVEL_COLORS_DARK := {
+  {
+    {46,74,126}, {62,88,126},
+    {0,84,0}, {30,100,30},
+    {100,38,6}, {116,58,20},
+    {127,127,127},
+    {0,50,0}, {127,108,0}
+  },
+  {
+    {30,50,90}, {40,60,100},
+    {0,60,0}, {0,75,0},
+    {50,20,5}, {75,35,10},
+    {100,100,110},
+    {0,50,0}, {127,50,50}
+  }
+};
+
+// Draw a rounded background for a block: fills the interior
+// while leaving the 4 corners empty (1 pixel radius).
+// Draws the inner fill of a 16x16 block with a 1-pixel rounded corner effect:
+// the 4 corner pixels are intentionally left unpainted so a border drawn
+// afterwards produces a rounded look.
+BLOC_FOND_ARRONDI(BX, BY, CL)
+BEGIN
+  RECT_P(G1, BX+1, BY, BX+14, BY+15, CL);       // center columns
+  RECT_P(G1, BX, BY+1, BX, BY+14, CL);          // left column (no corners)
+  RECT_P(G1, BX+15, BY+1, BX+15, BY+14, CL);    // right column (no corners)
+END;
+
+
+// Draw a rounded rectangle (1px corner radius) in color CL
+// Draws a filled rectangle with 1-pixel rounded corners by drawing the body
+// minus the corners plus thin top/bottom strips inset by 1 px.
+RECT_ARRONDI(x1, y1, x2, y2, CL)
+BEGIN
+  // Body (without corners)
+  RECT_P(G1, x1, y1+1, x2, y2-1, CL);
+  RECT_P(G1, x1+1, y1, x2-1, y1+1, CL);
+  RECT_P(G1, x1+1, y2-1, x2-1, y2, CL);
+END;
+
+
+// ============================================================
+// DRAWING FUNCTIONS - BLOCKS
+// ============================================================
+
+// Renders a brick block (type 1): rounded brown fill, dark outline,
+// horizontal mortar line, staggered vertical mortar lines, and a highlight.
+DESSINE_BRIQUE(BX, BY)
+BEGIN
+  // Rounded fill
+  BLOC_FOND_ARRONDI(BX, BY, RGB(200, 76, 12));
+
+  // Dark outline (4 sides)
+  RECT_P(G1, BX+1, BY, BX+14, BY, RGB(80, 30, 0));       // top
+  RECT_P(G1, BX+1, BY+15, BX+14, BY+15, RGB(80, 30, 0)); // bottom
+  RECT_P(G1, BX, BY+1, BX, BY+14, RGB(80, 30, 0));       // left
+  RECT_P(G1, BX+15, BY+1, BX+15, BY+14, RGB(80, 30, 0)); // right
+
+  // Brick pattern
+  RECT_P(G1, BX+1, BY+7, BX+14, BY+8, RGB(80, 30, 0));   // horizontal mortar
+  RECT_P(G1, BX+7, BY+1, BX+8, BY+7, RGB(80, 30, 0));    // top vertical mortar
+  RECT_P(G1, BX+3, BY+8, BX+4, BY+14, RGB(80, 30, 0));   // bottom-left vertical
+  RECT_P(G1, BX+11, BY+8, BX+12, BY+14, RGB(80, 30, 0)); // bottom-right vertical
+
+  // Highlight
+  RECT_P(G1, BX+2, BY+2, BX+6, BY+2, RGB(240, 130, 60));
+END;
+
+// Renders a question-mark block (type 2).
+// BH = 0 -> active yellow block with "?" glyph drawn pixel by pixel.
+// BH = 1 -> used/empty brown block (after being hit).
+DESSINE_BLOC_QUESTION(BX, BY, BH)
+BEGIN
+  IF BH == 0 THEN
+    // Rounded yellow fill
+    BLOC_FOND_ARRONDI(BX, BY, RGB(248, 184, 0));
+
+    // Dark outline
+    RECT_P(G1, BX+1, BY, BX+14, BY, RGB(148, 88, 0));
+    RECT_P(G1, BX+1, BY+15, BX+14, BY+15, RGB(148, 88, 0));
+    RECT_P(G1, BX, BY+1, BX, BY+14, RGB(148, 88, 0));
+    RECT_P(G1, BX+15, BY+1, BX+15, BY+14, RGB(148, 88, 0));
+
+    // Lighter interior
+    RECT_P(G1, BX+2, BY+2, BX+13, BY+13, RGB(255, 216, 64));
+
+    // Question-mark glyph
+    RECT_P(G1, BX+6, BY+4, BX+9, BY+5, RGB(148, 88, 0));
+    PIXON_P(G1, BX+5, BY+5, RGB(148, 88, 0));
+    PIXON_P(G1, BX+10, BY+5, RGB(148, 88, 0));
+    PIXON_P(G1, BX+10, BY+6, RGB(148, 88, 0));
+    PIXON_P(G1, BX+10, BY+7, RGB(148, 88, 0));
+    PIXON_P(G1, BX+9, BY+8, RGB(148, 88, 0));
+    PIXON_P(G1, BX+8, BY+9, RGB(148, 88, 0));
+    PIXON_P(G1, BX+7, BY+10, RGB(148, 88, 0));
+    PIXON_P(G1, BX+7, BY+12, RGB(148, 88, 0));
+  ELSE
+    // Brown block (already-hit block)
+    BLOC_FOND_ARRONDI(BX, BY, RGB(148, 88, 20));
+
+    // Outline
+    RECT_P(G1, BX+1, BY, BX+14, BY, RGB(80, 30, 0));
+    RECT_P(G1, BX+1, BY+15, BX+14, BY+15, RGB(80, 30, 0));
+    RECT_P(G1, BX, BY+1, BX, BY+14, RGB(80, 30, 0));
+    RECT_P(G1, BX+15, BY+1, BX+15, BY+14, RGB(80, 30, 0));
+
+    // Interior
+    RECT_P(G1, BX+2, BY+2, BX+13, BY+13, RGB(180, 120, 40));
+  END;
+END;
+
+// Renders a green pipe (type 4): rounded 16x16 cap plus a narrower
+// 12-wide body extending 16 px downward, with dark edges and highlight.
+DESSINE_TUYAU(BX, BY)
+BEGIN
+  // Cap (rounded)
+  BLOC_FOND_ARRONDI(BX, BY, RGB(0, 168, 0));
+
+  // Cap outline
+  RECT_P(G1, BX+1, BY, BX+14, BY, RGB(0, 80, 0));
+  RECT_P(G1, BX+1, BY+15, BX+14, BY+15, RGB(0, 80, 0));
+  RECT_P(G1, BX, BY+1, BX, BY+14, RGB(0, 80, 0));
+  RECT_P(G1, BX+15, BY+1, BX+15, BY+14, RGB(0, 80, 0));
+
+  // Highlight
+  RECT_P(G1, BX+2, BY+2, BX+13, BY+4, RGB(0, 200, 0));
+  RECT_P(G1, BX+3, BY+5, BX+5, BY+14, RGB(100, 220, 100));
+
+  // Pipe body (narrower, no rounding)
+  RECT_P(G1, BX+2, BY+16, BX+13, BY+31, RGB(0, 168, 0));
+  RECT_P(G1, BX+2, BY+16, BX+3, BY+31, RGB(0, 100, 0));
+  RECT_P(G1, BX+12, BY+16, BX+13, BY+31, RGB(0, 100, 0));
+  RECT_P(G1, BX+4, BY+16, BX+6, BY+31, RGB(100, 220, 100));
+END;
+
+// Dispatcher for block rendering. BT selects the visual:
+// 1 = brick, 2 = question block (uses BH), 3 = solid dark block, 4 = pipe.
+DESSINE_BLOC(BX, BY, BT, BH)
+BEGIN
+  IF BT == 1 THEN DESSINE_BRIQUE(BX, BY); END;
+  IF BT == 2 THEN DESSINE_BLOC_QUESTION(BX, BY, BH); END;
+  IF BT == 3 THEN
+    BLOC_FOND_ARRONDI(BX, BY, RGB(148, 56, 12));
+    RECT_P(G1, BX+1, BY, BX+14, BY, RGB(80, 30, 0));
+    RECT_P(G1, BX+1, BY+15, BX+14, BY+15, RGB(80, 30, 0));
+    RECT_P(G1, BX, BY+1, BX, BY+14, RGB(80, 30, 0));
+    RECT_P(G1, BX+15, BY+1, BX+15, BY+14, RGB(80, 30, 0));
+  END;
+  IF BT == 4 THEN DESSINE_TUYAU(BX, BY); END;
+END;
+
+// ============================================================
+// DRAWING FUNCTIONS - SCENERY
+// ============================================================
+
+// Fills the screen with a two-tone sky gradient using colors C1 (upper)
+// and C2 (lower band between y=100 and y=180).
+DESSINE_CIEL(C1, C2)
+BEGIN
+  RECT_P(G1, 0, 0, 320, 240, RGB(C1(1), C1(2), C1(3)));
+  RECT_P(G1, 0, 100, 320, 180, RGB(C2(1), C2(2), C2(3)));
+END;
+
+// Draws the ground layer with optional pits. CXP is the camera X offset.
+// P1S/P1E and P2S/P2E define up to two pit ranges; passing 0 for P1S means
+// "no pits". Draws soil fill, a darker top strip, and repeating texture marks.
+DESSINE_SOL(CXP, P1S, P1E, P2S, P2E, CSOL, CMOTIF)
+BEGIN
+  LOCAL I, CX;
+  LOCAL SR, SG, SB, MR, MG, MB;
+  SR := CSOL(1); SG := CSOL(2); SB := CSOL(3);
+  MR := CMOTIF(1); MG := CMOTIF(2); MB := CMOTIF(3);
+
+  IF P1S == 0 THEN
+    RECT_P(G1, 0, 176, 320, 240, RGB(SR, SG, SB));
+    RECT_P(G1, 0, 176, 320, 180, RGB(148, 56, 12));
+    FOR I FROM 0 TO 20 DO
+      CX := IP(I * 16 - (CXP MOD 16));
+      RECT_P(G1, CX, 184, CX + 8, 190, RGB(MR, MG, MB));
+    END;
+  ELSE
+    RECT_P(G1, 0 - CXP, 176, P1S - CXP, 240, RGB(SR, SG, SB));
+    RECT_P(G1, 0 - CXP, 176, P1S - CXP, 180, RGB(148, 56, 12));
+    RECT_P(G1, P1E - CXP, 176, P2S - CXP, 240, RGB(SR, SG, SB));
+    RECT_P(G1, P1E - CXP, 176, P2S - CXP, 180, RGB(148, 56, 12));
+    RECT_P(G1, P2E - CXP, 176, 320, 240, RGB(SR, SG, SB));
+    RECT_P(G1, P2E - CXP, 176, 320, 180, RGB(148, 56, 12));
+    FOR I FROM 0 TO 60 DO
+      CX := IP(I * 16 - (CXP MOD 16));
+      IF (CX + 8 < P1S - CXP) OR (CX > P1E - CXP) THEN
+        IF (CX + 8 < P2S - CXP) OR (CX > P2E - CXP) THEN
+          RECT_P(G1, CX, 184, CX + 8, 190, RGB(MR, MG, MB));
+        END;
+      END;
+    END;
+  END;
+END;
+
+// Draws parallax background hills (0.3x camera speed) using a stack of
+// rectangles to approximate rounded hill silhouettes, plus highlights.
+DESSINE_COLLINES(CXP, C1, C2)
+BEGIN
+  LOCAL I, HX, HILLX;
+  LOCAL R1, GG1, B1, R2, GG2, B2;
+  R1 := C1(1); GG1 := C1(2); B1 := C1(3);
+  R2 := C2(1); GG2 := C2(2); B2 := C2(3);
+
+  HX := IP(40 - (CXP * 0.3 MOD 640));
+  FOR I FROM 0 TO 1 DO
+    HILLX := IP(HX + I * 320);
+    IF HILLX > -80 AND HILLX < 400 THEN
+      RECT_P(G1, HILLX + 4, 168, HILLX + 68, 176, RGB(R1, GG1, B1));
+      RECT_P(G1, HILLX + 12, 160, HILLX + 60, 168, RGB(R1, GG1, B1));
+      RECT_P(G1, HILLX + 20, 154, HILLX + 52, 160, RGB(R1, GG1, B1));
+      RECT_P(G1, HILLX + 28, 150, HILLX + 44, 154, RGB(R1, GG1, B1));
+      RECT_P(G1, HILLX + 8, 170, HILLX + 20, 174, RGB(R2, GG2, B2));
+      RECT_P(G1, HILLX + 16, 162, HILLX + 26, 168, RGB(R2, GG2, B2));
+    END;
+  END;
+END;
+
+// Draws parallax clouds (0.2x camera speed) at three altitudes,
+// each cloud built from four overlapping rectangles.
+DESSINE_NUAGES(CXP, CN)
+BEGIN
+  LOCAL I, HX, CLX, CLY;
+  LOCAL R, GG, B;
+  R := CN(1); GG := CN(2); B := CN(3);
+
+  HX := IP(20 - (CXP * 0.2 MOD 480));
+  FOR I FROM 0 TO 2 DO
+    CLX := IP(HX + I * 160);
+    IF I == 0 THEN CLY := 30; END;
+    IF I == 1 THEN CLY := 55; END;
+    IF I == 2 THEN CLY := 22; END;
+    IF CLX > -40 AND CLX < 340 THEN
+      RECT_P(G1, CLX + 2, CLY + 4, CLX + 12, CLY + 10, RGB(R, GG, B));
+      RECT_P(G1, CLX + 10, CLY, CLX + 22, CLY + 10, RGB(R, GG, B));
+      RECT_P(G1, CLX + 20, CLY + 4, CLX + 30, CLY + 10, RGB(R, GG, B));
+      RECT_P(G1, CLX, CLY + 8, CLX + 32, CLY + 12, RGB(R, GG, B));
+    END;
+  END;
+END;
+
+
+
+
+// Draws the end-of-level flag pole at world X = FX, with a pole rectangle
+// and a flag rectangle (colors CP = pole, CD = flag cloth).
+DESSINE_DRAPEAU(FX, FY, CXP, CP, CD)
+BEGIN
+  LOCAL BX;
+  IF FX - CXP > -40 AND FX - CXP < 360 THEN
+    BX := IP(FX - CXP);
+    RECT_P(G1, BX, FY, BX + 4, 176, RGB(CP(1), CP(2), CP(3)));
+    RECT_P(G1, BX - 20, FY, BX + 4, FY + 16, RGB(CD(1), CD(2), CD(3)));
+    RECT_P(G1, BX - 20, FY, BX + 4, FY + 2, RGB(200, 150, 0));
+  END;
+END;
+
+// Iterates the level's block table and renders each visible block via
+// DESSINE_BLOC, culling blocks outside the visible X range.
+DESSINE_TOUS_BLOCS(BLOCKS, N, CXP)
+BEGIN
+  LOCAL I, BX, BY, BT, BH;
+  FOR I FROM 1 TO N DO
+    BX := IP(BLOCKS(I, 1) - CXP);
+    BY := BLOCKS(I, 2);
+    BT := BLOCKS(I, 3);
+    BH := BLOCKS(I, 4);
+    IF BX > -20 AND BX < 340 THEN
+      DESSINE_BLOC(BX, BY, BT, BH);
+    END;
+  END;
+END;
+
+// Renders Mario. Handles three visual states:
+//   ST == 1 -> death sprite (flat falling pose)
+//   BG == 1 -> big Mario (24 px tall) with detailed body, buttons, overalls
+//   BG == 0 -> small Mario (16 px tall)
+// D = facing direction, WF = walk animation frame, OG = on-ground flag.
+DESSINE_MARIO(PXP, PYP, D, BG, ST, WF, OG)
+BEGIN
+  IF ST == 1 THEN
+    RECT_P(G1, PXP, PYP, PXP+12, PYP+4, RGB(216, 40, 0));
+    RECT_P(G1, PXP+2, PYP+4, PXP+10, PYP+8, RGB(252, 188, 136));
+    RECT_P(G1, PXP+1, PYP+8, PXP+11, PYP+16, RGB(216, 40, 0));
+  ELSE
+    IF BG == 1 THEN
+      RECT_P(G1, PXP+1, PYP,   PXP+13, PYP+2, RGB(216, 40, 0));
+      RECT_P(G1, PXP,   PYP+1, PXP+14, PYP+4, RGB(216, 40, 0));
+      IF D > 0 THEN
+        RECT_P(G1, PXP+8, PYP+3, PXP+16, PYP+5, RGB(180, 30, 0));
+      ELSE
+        RECT_P(G1, PXP-2, PYP+3, PXP+6, PYP+5, RGB(180, 30, 0));
+      END;
+      RECT_P(G1, PXP+2, PYP+4, PXP+12, PYP+10, RGB(252, 188, 136));
+      IF D > 0 THEN
+        RECT_P(G1, PXP+2, PYP+5, PXP+4, PYP+9, RGB(80, 40, 10));
+      ELSE
+        RECT_P(G1, PXP+10, PYP+5, PXP+12, PYP+9, RGB(80, 40, 10));
+      END;
+      IF D > 0 THEN
+        RECT_P(G1, PXP+9, PYP+6, PXP+11, PYP+8, RGB(0, 0, 0));
+      ELSE
+        RECT_P(G1, PXP+3, PYP+6, PXP+5, PYP+8, RGB(0, 0, 0));
+      END;
+      RECT_P(G1, PXP+4, PYP+9, PXP+12, PYP+11, RGB(80, 40, 10));
+      RECT_P(G1, PXP+5, PYP+9, PXP+11, PYP+10, RGB(110, 60, 20));
+      RECT_P(G1, PXP+3, PYP+11, PXP+13, PYP+18, RGB(216, 40, 0));
+      RECT_P(G1, PXP+5, PYP+12, PXP+11, PYP+17, RGB(240, 60, 20));
+      RECT_P(G1, PXP+4, PYP+11, PXP+5, PYP+14, RGB(0, 80, 192));
+      RECT_P(G1, PXP+11, PYP+11, PXP+12, PYP+14, RGB(0, 80, 192));
+      PIXON_P(G1, PXP+4, PYP+14, RGB(255, 216, 0));
+      PIXON_P(G1, PXP+11, PYP+14, RGB(255, 216, 0));
+      RECT_P(G1, PXP+3, PYP+18, PXP+13, PYP+20, RGB(0, 80, 192));
+      RECT_P(G1, PXP+3, PYP+20, PXP+7, PYP+23, RGB(0, 80, 192));
+      RECT_P(G1, PXP+9, PYP+20, PXP+13, PYP+23, RGB(0, 80, 192));
+      IF WF < 6 THEN
+        RECT_P(G1, PXP, PYP+22, PXP+6, PYP+25, RGB(80, 40, 0));
+        RECT_P(G1, PXP+10, PYP+22, PXP+16, PYP+25, RGB(80, 40, 0));
+      ELSE
+        RECT_P(G1, PXP+1, PYP+22, PXP+7, PYP+25, RGB(80, 40, 0));
+        RECT_P(G1, PXP+9, PYP+21, PXP+16, PYP+25, RGB(80, 40, 0));
+      END;
+    ELSE
+      RECT_P(G1, PXP, PYP, PXP+13, PYP+4, RGB(216, 40, 0));
+      IF D > 0 THEN
+        RECT_P(G1, PXP+9, PYP+2, PXP+14, PYP+4, RGB(180, 30, 0));
+      ELSE
+        RECT_P(G1, PXP-2, PYP+2, PXP+3, PYP+4, RGB(180, 30, 0));
+      END;
+      RECT_P(G1, PXP+2, PYP+4, PXP+11, PYP+9, RGB(252, 188, 136));
+      IF D > 0 THEN
+        RECT_P(G1, PXP+8, PYP+5, PXP+9, PYP+7, RGB(0, 0, 0));
+      ELSE
+        RECT_P(G1, PXP+3, PYP+5, PXP+4, PYP+7, RGB(0, 0, 0));
+      END;
+      RECT_P(G1, PXP+4, PYP+7, PXP+10, PYP+9, RGB(80, 40, 10));
+      RECT_P(G1, PXP+1, PYP+9, PXP+11, PYP+13, RGB(216, 40, 0));
+      PIXON_P(G1, PXP+3, PYP+11, RGB(255, 216, 0));
+      PIXON_P(G1, PXP+9, PYP+11, RGB(255, 216, 0));
+      RECT_P(G1, PXP+2, PYP+13, PXP+10, PYP+16, RGB(0, 80, 192));
+      IF WF < 6 THEN
+        RECT_P(G1, PXP, PYP+15, PXP+5, PYP+17, RGB(80, 40, 0));
+        RECT_P(G1, PXP+7, PYP+15, PXP+12, PYP+17, RGB(80, 40, 0));
+      ELSE
+        RECT_P(G1, PXP+1, PYP+15, PXP+5, PYP+17, RGB(80, 40, 0));
+        RECT_P(G1, PXP+7, PYP+14, PXP+12, PYP+17, RGB(80, 40, 0));
+      END;
+    END;
+  END;
+END;
+
+// Renders a Goomba enemy: brown domed body, white eyes with black pupils,
+// and two feet that alternate position based on animation frame FR.
+DESSINE_GOOMBA(BX, BY, FR)
+BEGIN
+  RECT_P(G1, BX+2, BY, BX+13, BY+2, RGB(172, 82, 20));
+  RECT_P(G1, BX+1, BY+2, BX+14, BY+4, RGB(172, 82, 20));
+  RECT_P(G1, BX, BY+4, BX+15, BY+11, RGB(200, 110, 40));
+  RECT_P(G1, BX+3, BY+1, BX+9, BY+3, RGB(220, 140, 60));
+  RECT_P(G1, BX+3, BY+5, BX+6, BY+6, RGB(40, 20, 5));
+  RECT_P(G1, BX+9, BY+5, BX+12, BY+6, RGB(40, 20, 5));
+  RECT_P(G1, BX+3, BY+6, BX+6, BY+10, RGB(255, 255, 255));
+  RECT_P(G1, BX+9, BY+6, BX+12, BY+10, RGB(255, 255, 255));
+  RECT_P(G1, BX+5, BY+7, BX+6, BY+9, RGB(0, 0, 0));
+  RECT_P(G1, BX+9, BY+7, BX+10, BY+9, RGB(0, 0, 0));
+  RECT_P(G1, BX+2, BY+10, BX+13, BY+11, RGB(140, 60, 10));
+  IF FR < 10 THEN
+    RECT_P(G1, BX, BY+12, BX+6, BY+15, RGB(80, 40, 0));
+    RECT_P(G1, BX+9, BY+12, BX+15, BY+15, RGB(80, 40, 0));
+  ELSE
+    RECT_P(G1, BX+2, BY+12, BX+8, BY+15, RGB(80, 40, 0));
+    RECT_P(G1, BX+7, BY+12, BX+13, BY+15, RGB(80, 40, 0));
+  END;
+END;
+
+// Renders a Koopa enemy: yellow head with eyes, green shell with lighter
+// spots, and alternating feet based on animation frame FR.
+DESSINE_KOOPA(BX, BY, FR)
+BEGIN
+  RECT_P(G1, BX+3, BY, BX+12, BY+5, RGB(255, 220, 100));
+  RECT_P(G1, BX+4, BY+2, BX+5, BY+3, RGB(0, 0, 0));
+  RECT_P(G1, BX+10, BY+2, BX+11, BY+3, RGB(0, 0, 0));
+  RECT_P(G1, BX+6, BY+4, BX+9, BY+5, RGB(200, 150, 0));
+  RECT_P(G1, BX+1, BY+5, BX+14, BY+14, RGB(0, 168, 0));
+  RECT_P(G1, BX+3, BY+6, BX+5, BY+8, RGB(0, 220, 0));
+  RECT_P(G1, BX+7, BY+6, BX+9, BY+8, RGB(0, 220, 0));
+  RECT_P(G1, BX+10, BY+6, BX+12, BY+8, RGB(0, 220, 0));
+  IF FR < 10 THEN
+    RECT_P(G1, BX, BY+13, BX+4, BY+15, RGB(255, 220, 100));
+    RECT_P(G1, BX+11, BY+13, BX+15, BY+15, RGB(255, 220, 100));
+  ELSE
+    RECT_P(G1, BX+2, BY+13, BX+6, BY+15, RGB(255, 220, 100));
+    RECT_P(G1, BX+9, BY+13, BX+13, BY+15, RGB(255, 220, 100));
+  END;
+END;
+
+// Draws a static coin as two concentric golden circles.
+DESSINE_PIECE(BX, BY)
+BEGIN
+  ARC_P(G1, BX + 8, BY + 8, 6, 0, 360, RGB(255, 216, 0));
+  ARC_P(G1, BX + 8, BY + 8, 4, 0, 360, RGB(255, 240, 120));
+END;
+
+// Draws an animated floating coin whose radius pulses over time using a
+// sine function of the frame counter T, giving a shimmering effect.
+DESSINE_PIECE_BONUS(BX, BY, T)
+BEGIN
+  LOCAL R;
+  R := 6 + IP(2 * ABS(SIN(T * 3.14159 / 30)));
+  ARC_P(G1, BX + 8, BY + 8, R, 0, 360, RGB(255, 216, 0));
+  ARC_P(G1, BX + 8, BY + 8, R - 2, 0, 360, RGB(255, 240, 120));
+END;
+
+// Draws a heart-shaped extra-life pickup built from stacked rectangles
+// that narrow toward a point, plus two highlight pixels.
+DESSINE_VIE_BONUS(BX, BY, T)
+BEGIN
+  LOCAL C;
+  C := RGB(216, 40, 0);
+
+  // Top lobes
+  RECT_P(G1, BX + 2, BY + 1, BX + 6, BY + 3, C);   // left lobe
+  RECT_P(G1, BX + 9, BY + 1, BX + 13, BY + 3, C);  // right lobe
+  RECT_P(G1, BX + 1, BY + 2, BX + 14, BY + 5, C);  // upper body
+  RECT_P(G1, BX + 2, BY + 5, BX + 13, BY + 8, C);  // middle body
+  RECT_P(G1, BX + 3, BY + 8, BX + 12, BY + 10, C); // narrows
+  RECT_P(G1, BX + 4, BY + 10, BX + 11, BY + 12, C);
+  RECT_P(G1, BX + 6, BY + 12, BX + 9, BY + 14, C); // point
+  RECT_P(G1, BX + 7, BY + 14, BX + 8, BY + 15, C);
+
+  // Highlight (top-left)
+  PIXON_P(G1, BX + 3, BY + 3, RGB(255, 200, 200));
+  PIXON_P(G1, BX + 4, BY + 3, RGB(255, 200, 200));
+END;
+
+// Draws a Super Mushroom power-up: red cap with white spots, cream stem,
+// and two black eye pixels.
+DESSINE_CHAMPIGNON(BX, BY)
+BEGIN
+  RECT_P(G1, BX + 2, BY + 2, BX + 14, BY + 10, RGB(216, 40, 0));
+  RECT_P(G1, BX + 4, BY + 4, BX + 12, BY + 8, RGB(255, 255, 255));
+  RECT_P(G1, BX + 4, BY + 10, BX + 12, BY + 16, RGB(255, 220, 180));
+  PIXON_P(G1, BX + 6, BY + 12, RGB(0, 0, 0));
+  PIXON_P(G1, BX + 10, BY + 12, RGB(0, 0, 0));
+END;
+
+// Draws the top HUD bar: black strip, coin icon, heart icon, coin icon
+// for counter, then renders SCORE (5 digits), level number, and coin count
+// (2 digits) using the 3x5 bitmap font in ALLP.
+DESSINE_HUD(SC, LV, CN)
+BEGIN
+  LOCAL I, LIG, DD, DX, DY, TCHIF, TMPSC;
+  RECT_P(G1, 0, 0, 320, 12, RGB(0, 0, 0));
+  RECT_P(G1, 5, 3, 9, 4, RGB(0, 255, 255));
+  RECT_P(G1, 5, 4, 6, 6, RGB(0, 255, 255));
+  RECT_P(G1, 5, 6, 9, 7, RGB(0, 255, 255));
+  RECT_P(G1, 8, 7, 9, 9, RGB(0, 255, 255));
+
+  // Heart (better shape)
+  RECT_P(G1, 199, 3, 201, 4, RGB(216, 40, 0));
+  RECT_P(G1, 204, 3, 206, 4, RGB(216, 40, 0));
+  RECT_P(G1, 198, 4, 207, 5, RGB(216, 40, 0));
+  RECT_P(G1, 197, 5, 208, 7, RGB(216, 40, 0));
+  RECT_P(G1, 198, 7, 207, 8, RGB(216, 40, 0));
+  RECT_P(G1, 199, 8, 206, 9, RGB(216, 40, 0));
+  RECT_P(G1, 200, 9, 205, 10, RGB(216, 40, 0));
+  RECT_P(G1, 201, 10, 204, 11, RGB(216, 40, 0));
+  PIXON_P(G1, 200, 5, RGB(255, 200, 200));
+
+  // HUD coin: golden circle
+  ARC_P(G1, 247, 7, 5, 0, 360, RGB(255, 216, 0));
+  ARC_P(G1, 247, 7, 3, 0, 360, RGB(255, 240, 120));
+  PIXON_P(G1, 245, 5, RGB(255, 255, 255));   // highlight
+
+  TCHIF := {0,0,0,0,0,0,0,0};
+  TMPSC := SC;
+  FOR I FROM 5 DOWNTO 1 DO
+    TCHIF(I) := TMPSC MOD 10;
+    TMPSC := FLOOR(TMPSC / 10);
+  END;
+  FOR I FROM 1 TO 5 DO
+    DD := TCHIF(I) + 1;
+    DX := 12 + (I-1)*4;
+    DY := 3;
+    FOR LIG FROM 1 TO 5 DO
+      IF ALLP(DD, LIG, 1) == 1 THEN PIXON_P(G1, DX, DY+LIG-1, RGB(255, 255, 255)); END;
+      IF ALLP(DD, LIG, 2) == 1 THEN PIXON_P(G1, DX+1, DY+LIG-1, RGB(255, 255, 255)); END;
+      IF ALLP(DD, LIG, 3) == 1 THEN PIXON_P(G1, DX+2, DY+LIG-1, RGB(255, 255, 255)); END;
+    END;
+  END;
+  DD := (LV MOD 10) + 1;
+  FOR LIG FROM 1 TO 5 DO
+    IF ALLP(DD, LIG, 1) == 1 THEN PIXON_P(G1, 210, 3+LIG-1, RGB(255, 255, 255)); END;
+    IF ALLP(DD, LIG, 2) == 1 THEN PIXON_P(G1, 211, 3+LIG-1, RGB(255, 255, 255)); END;
+    IF ALLP(DD, LIG, 3) == 1 THEN PIXON_P(G1, 212, 3+LIG-1, RGB(255, 255, 255)); END;
+  END;
+  DD := (FLOOR(CN / 10) MOD 10) + 1;
+  FOR LIG FROM 1 TO 5 DO
+    IF ALLP(DD, LIG, 1) == 1 THEN PIXON_P(G1, 253, 3+LIG-1, RGB(255, 255, 255)); END;
+    IF ALLP(DD, LIG, 2) == 1 THEN PIXON_P(G1, 254, 3+LIG-1, RGB(255, 255, 255)); END;
+    IF ALLP(DD, LIG, 3) == 1 THEN PIXON_P(G1, 255, 3+LIG-1, RGB(255, 255, 255)); END;
+  END;
+  DD := (CN MOD 10) + 1;
+  FOR LIG FROM 1 TO 5 DO
+    IF ALLP(DD, LIG, 1) == 1 THEN PIXON_P(G1, 257, 3+LIG-1, RGB(255, 255, 255)); END;
+    IF ALLP(DD, LIG, 2) == 1 THEN PIXON_P(G1, 258, 3+LIG-1, RGB(255, 255, 255)); END;
+    IF ALLP(DD, LIG, 3) == 1 THEN PIXON_P(G1, 259, 3+LIG-1, RGB(255, 255, 255)); END;
+  END;
+END;
+
+// Draws the level-complete overlay: a dark blue rounded panel with a gold
+// star and a blinking "Press ENTER" hint (blink driven by frame T).
+DESSINE_LEVEL_END(T)
+BEGIN
+  RECT_P(G1, 104, 95, 216, 145, RGB(0, 0, 0));
+  RECT_P(G1, 100, 99, 220, 141, RGB(0, 0, 0));
+  RECT_P(G1, 106, 97, 214, 143, RGB(40, 40, 120));
+  RECT_P(G1, 102, 101, 218, 139, RGB(40, 40, 120));
+  RECT_P(G1, 158, 105, 162, 108, RGB(255, 216, 0));
+  RECT_P(G1, 156, 108, 164, 111, RGB(255, 216, 0));
+  RECT_P(G1, 154, 111, 166, 114, RGB(255, 216, 0));
+  RECT_P(G1, 152, 114, 168, 117, RGB(255, 216, 0));
+  RECT_P(G1, 156, 117, 164, 128, RGB(255, 216, 0));
+  IF (T MOD 60) < 40 THEN
+    TEXTOUT_P(T("LEVEL_END_HINT"), G1, 118, 150, 2, RGB(255, 255, 255));
+  END;
+END;
+
+// Draws the pause overlay: a large light-blue rounded panel with a dark blue
+// border, the word "PAUSE", and a "PRESS ENTER" hint.
+DESSINE_PAUSE()
+BEGIN
+  LOCAL I, X, R;
+  LOCAL bx1, by1, bx2, by2;
+  bx1 := 90; by1 := 85; bx2 := 230; by2 := 155;
+  R := 10;
+  RECT_P(G1, bx1+R, by1, bx2-R, by2, RGB(160, 210, 255));
+  RECT_P(G1, bx1, by1+R, bx2, by2-R, RGB(160, 210, 255));
+  FOR I FROM 0 TO R DO
+    X := bx1+R-I; RECT_P(G1, X, by1+R-I, bx1+R, by1+R-I, RGB(160, 210, 255));
+    X := bx2-R+I; RECT_P(G1, bx2-R, by1+R-I, X, by1+R-I, RGB(160, 210, 255));
+    X := bx1+R-I; RECT_P(G1, X, by2-R+I, bx1+R, by2-R+I, RGB(160, 210, 255));
+    X := bx2-R+I; RECT_P(G1, bx2-R, by2-R+I, X, by2-R+I, RGB(160, 210, 255));
+  END;
+  RECT_P(G1, bx1+R, by1, bx2-R, by1+1, RGB(40, 80, 160));
+  RECT_P(G1, bx1+R, by2-1, bx2-R, by2, RGB(40, 80, 160));
+  RECT_P(G1, bx1, by1+R, bx1+1, by2-R, RGB(40, 80, 160));
+  RECT_P(G1, bx2-1, by1+R, bx2, by2-R, RGB(40, 80, 160));
+  TEXTOUT_P(T("PAUSE"), G1, 140, 100, 2, RGB(0, 40, 120));
+  TEXTOUT_P(T("PAUSE_HINT"), G1, 122, 130, 1, RGB(0, 40, 120));
+END;
+
+
+// Horizontal movement physics. Applies acceleration toward the pressed
+// direction (capped at maxspd) or friction toward zero when no key is held.
+// Returns {vx, dir}.
+PhysHorizontal(goLeft, goRight, vx, dir, maxspd, accel, friction)
+BEGIN
+  IF goLeft THEN
+    dir := -1; vx := MAX(-maxspd, vx - accel);
+  ELSE
+    IF goRight THEN
+      dir := 1; vx := MIN(maxspd, vx + accel);
+    ELSE
+      IF vx > 0 THEN vx := MAX(0, vx - friction); END;
+      IF vx < 0 THEN vx := MIN(0, vx + friction); END;
+    END;
+  END;
+  RETURN {vx, dir};
+END;
+
+// Jump physics. Initiates a jump when the jump key is pressed while grounded,
+// supports variable jump height via a short "jump hold" window, and cuts
+// upward velocity early when the key is released.
+// Returns {vy, onGnd, jhold}.
+PhysJump(goJump, onGnd, vy, jhold, jv)
+BEGIN
+  IF goJump AND onGnd THEN
+    vy := jv; onGnd := 0; jhold := 4;
+  END;
+  IF goJump AND jhold > 0 THEN
+    jhold := jhold - 1;
+  ELSE
+    IF jhold > 0 THEN
+      jhold := 0;
+      IF vy < -3 THEN vy := -3; END;
+    END;
+  END;
+  RETURN {vy, onGnd, jhold};
+END;
+
+// Integrates position from velocity: saves previous position (px, py),
+// applies velocity, then applies gravity to vy.
+// Returns {mx, my, vx, vy, px, py}.
+PhysIntegrate(mx, my, vx, vy, g)
+BEGIN
+  LOCAL px, py;
+  px := mx; py := my;
+  mx := mx + vx;
+  vy := vy + g;
+  my := my + vy;
+  RETURN {mx, my, vx, vy, px, py};
+END;
+
+// Resolves collision with the ground line (y = 176). If Mario is over a pit
+// the collision is skipped so he falls through. Snaps him to the ground and
+// zeroes vy when landing.
+// Returns {my, vy, onGnd}.
+PhysGroundCollision(mx, my, mh, vy, onGnd, p1s, p1e, p2s, p2e)
+BEGIN
+  IF my + mh >= 176 THEN
+    IF my + mh > 200 THEN
+      // falling in a pit
+    ELSE
+      IF p1s == 0 THEN
+        my := 176 - mh; vy := 0; onGnd := 1;
+      ELSE
+        IF NOT((mx + 12 > p1s AND mx < p1e) OR (mx + 12 > p2s AND mx < p2e)) THEN
+          my := 176 - mh; vy := 0; onGnd := 1;
+        END;
+      END;
+    END;
+  END;
+  RETURN {my, vy, onGnd};
+END;
+
+// Full AABB collision resolution against every solid block in the level.
+// Handles: landing on top (vy > 0), hitting from below (vy < 0, also detects
+// question-block hits), and horizontal blocking.
+// Returns {mx, my, vx, vy, onGnd, hit, hitI, hitX, hitY} where hit/hitI/hitX/hitY
+// describe a question-block hit for the caller to process.
+PhysBlockCollisions(BLOCKS, N, mx, my, mh, vx, vy, px, py, onGnd)
+BEGIN
+  LOCAL I, hx, hy, bt, bh;
+  LOCAL hit, hitI, hitX, hitY;
+  hit := 0; hitI := 0; hitX := 0; hitY := 0;
+  FOR I FROM 1 TO N DO
+    hx := BLOCKS(I, 1); hy := BLOCKS(I, 2);
+    bt := BLOCKS(I, 3); bh := BLOCKS(I, 4);
+    IF mx + 12 > hx AND mx < hx + 16 THEN
+      IF vy > 0 AND (py + mh) <= hy + 2 AND (my + mh) >= hy THEN
+        my := hy - mh; vy := 0; onGnd := 1;
+      END;
+      IF vy < 0 AND py >= hy + 16 AND my <= hy + 16 THEN
+        my := hy + 16; vy := 0;
+        IF my + mh >= 176 THEN onGnd := 1; END;
+        IF bt == 2 AND bh == 0 THEN
+          hit := 1; hitI := I; hitX := hx; hitY := hy;
+        END;
+      END;
+      IF my + mh > hy + 2 AND my + 2 < hy + 16 THEN
+        IF vx > 0 AND mx + 12 <= hx + 8 THEN mx := hx - 12; vx := 0; END;
+        IF vx < 0 AND mx >= hx + 8 THEN mx := hx + 16; vx := 0; END;
+      END;
+    END;
+  END;
+  RETURN {mx, my, vx, vy, onGnd, hit, hitI, hitX, hitY};
+END;
+
+// Safety routine: if Mario's bounding box overlaps any block, push him up to
+// the block's top surface. Prevents getting permanently embedded in geometry.
+// Returns {my, vy, onGnd}.
+PhysAntiStuck(BLOCKS, N, mx, my, mh, vy, onGnd)
+BEGIN
+  LOCAL I, hx, hy;
+  FOR I FROM 1 TO N DO
+    hx := BLOCKS(I, 1); hy := BLOCKS(I, 2);
+    IF mx >= hx - 2 AND mx + 12 <= hx + 18 THEN
+      IF my + mh > hy AND my < hy + 16 THEN
+        my := hy - mh; vy := 0; onGnd := 1;
+      END;
+    END;
+  END;
+  RETURN {my, vy, onGnd};
+END;
+
+// Camera follow logic. Clamps Mario to [0, maxx], then scrolls the camera to
+// keep him roughly 30–100 px from the left/right edges.
+// Returns {mx, vx, camx}.
+PhysCamera(mx, vx, camx, maxx)
+BEGIN
+  IF mx < 0 THEN mx := 0; vx := 0; END;
+  IF mx > maxx THEN mx := maxx; vx := 0; END;
+  IF mx > camx + 100 THEN camx := mx - 100; END;
+  IF mx < camx + 30 THEN camx := MAX(0, mx - 30); END;
+  RETURN {mx, vx, camx};
+END;
+
+// Decides what spawns from a hit question-block.
+// Returns {type, x, y, vy} where type 1 = coin, 2 = mushroom, 3 = extra life.
+// 10 % chance to spawn a life; otherwise the normal rule (slot 3 + small
+// Mario spawns a mushroom, else a coin pops upward).
+SpawnFromQB(I, hx, hy, bg)
+BEGIN
+  LOCAL R;
+  R := RANDOM(10);
+
+  // 10 % chance to get a life (type 3)
+  IF R < 1 THEN
+    RETURN {3, hx, hy - 16, 0};
+  END;
+
+  // Otherwise, normal rule: if I == 3 and small Mario, spawn mushroom
+  IF I == 3 AND bg == 0 THEN
+    RETURN {2, hx, hy - 16, 0};
+  ELSE
+    RETURN {1, hx, hy - 4, -3};
+  END;
+END;
+
+// Updates one generic pickup slot (coin pop, mushroom, or extra life).
+// Handles motion (gravity + horizontal drift), ground clamp, collision with
+// Mario, and returns the updated slot state plus event flags:
+//   r(7) = 1 -> grow big, r(7) = 2 -> gain a life
+//   r(8) = score gained, r(9) = coins gained, r(10) = 1 -> destroy slot
+UpdateObjSlot(on, ot, ox, oy, ovy, otim, mx, my, mh, g)
+BEGIN
+  LOCAL bg, sg, cg, de;
+  bg := 0; sg := 0; cg := 0; de := 0;
+
+  IF on == 1 THEN
+    otim := otim + 1;
+
+    IF ot == 1 THEN
+      // Coin: rises then disappears
+      oy := oy + ovy; ovy := ovy + 0.3;
+      IF otim > 20 THEN de := 1; cg := 1; sg := 50; END;
+    ELSE
+      IF ot == 3 THEN
+        // Life: falls and drifts
+        ovy := ovy + g; oy := oy + ovy; ox := ox + 0.6;
+        IF oy + 16 >= 176 THEN oy := 160; ovy := 0; END;
+        IF ABS((mx+6)-(ox+8)) < 12 AND ABS((my+mh/2)-(oy+8)) < 14 THEN
+          bg := 2; de := 1; sg := 300;
+        END;
+      ELSE
+        // Mushroom: falls and drifts
+        ovy := ovy + g; oy := oy + ovy; ox := ox + 0.6;
+        IF oy + 16 >= 176 THEN oy := 160; ovy := 0; END;
+        IF ABS((mx+6)-(ox+8)) < 12 AND ABS((my+mh/2)-(oy+8)) < 14 THEN
+          bg := 1; de := 1; sg := 200;
+        END;
+      END;
+    END;
+  END;
+
+  RETURN {on, ot, ox, oy, ovy, otim, bg, sg, cg, de};
+END;
+
+
+// Resolves Mario-vs-one-enemy collision.
+// Returns {killed, dmg, ny, nbg, nmh, nmy}:
+//   killed = 1 -> enemy stomped (Mario bounces, ny is new vy)
+//   dmg = 1   -> big Mario shrinks (nbg/nmh/nmy describe the smaller state)
+//   dmg = 2   -> Mario dies (caller sets STATE = 1)
+PhysEnemyCollision(mx, my, mh, vy, bg, ex, ey)
+BEGIN
+  LOCAL killed, dmg, ny, nbg, nmh, nmy;
+  killed := 0; dmg := 0;
+  ny := vy; nbg := bg; nmh := mh; nmy := my;
+  IF ABS((mx+6)-(ex+8)) < 12 AND ABS((my+mh/2)-(ey+8)) < 14 THEN
+    IF vy > 0 AND my + mh/2 < ey + 6 THEN
+      killed := 1; ny := -5;
+    ELSE
+      IF bg == 1 THEN
+        dmg := 1; nbg := 0; nmh := 16; nmy := my + 8;
+      ELSE
+        dmg := 2;
+      END;
+    END;
+  END;
+  RETURN {killed, dmg, ny, nbg, nmh, nmy};
+END;
+
+// Simple patrol movement: moves the enemy by ed * sp, reverses direction when
+// the patrol bounds are exceeded, and advances the animation frame.
+// Returns {ex, ed, ef}.
+PhysEnemyPatrol(ex, ey, ed, ef, sp, mn, mxx)
+BEGIN
+  ex := ex + ed * sp;
+  IF ex < mn OR ex > mxx THEN ed := -ed; END;
+  ef := (ef + 1) MOD 20;
+  RETURN {ex, ed, ef};
+END;
+
+// Animates the flag-pole victory jump: bobs Mario up and down for the first
+// 60 frames, then lets him fall back to ground level (y = 160).
+// Returns {js, jsp, my}.
+PhysEndFlagJump(js, jsp, my)
+BEGIN
+  IF js < 60 THEN
+    js := js + 1;
+    IF (js MOD 30) < 15 THEN jsp := -4; ELSE jsp := 0.4; END;
+    my := my + jsp;
+    IF my > 160 THEN my := 160; END;
+    IF my < 110 THEN my := 110; END;
+  ELSE
+    IF my < 160 THEN my := my + 2; IF my > 160 THEN my := 160; END; END;
+  END;
+  RETURN {js, jsp, my};
+END;
+
+// Returns 1 if the enemy at (ex, ey) overlaps a solid block (type 3 or 4).
+EnemyHitsBlock(ex, ey)
+BEGIN
+  LOCAL I, n, bx, hx, hy, bt;
+  n := SIZE(LEVEL_BLOCKS(ACTIVE_LEVEL));
+  FOR I FROM 1 TO n DO
+    bx := LEVEL_BLOCKS(ACTIVE_LEVEL, I);
+    hx := bx(1); hy := bx(2); bt := bx(3);
+    IF bt == 3 OR bt == 4 THEN
+      IF ex + 16 > hx AND ex < hx + 16 THEN
+        IF ey + 16 > hy AND ey < hy + 16 THEN
+          RETURN 1;
+        END;
+      END;
+    END;
+  END;
+  RETURN 0;
+END;
+
+
+// ============================================================
+// STEP ONE ENEMY (no ELSE IF on one line)
+// ============================================================
+// Moves one enemy slot: applies patrol movement, bounces off patrol bounds,
+// and reverses direction on contact with a solid block (pipe / solid block).
+// Reads/writes the flat E1..E8 globals based on the slot index N.
+StepEnemy(N, sp, mn, mxx)
+BEGIN
+  LOCAL ex, ey, ed, ea, ef, r;
+  ex := 0; ey := 0; ed := -1; ea := 0; ef := 0;
+
+  IF N == 1 THEN ex := E1X; ey := E1Y; ed := E1DIR; ef := E1FRAME; ea := E1ALIVE; END;
+  IF N == 2 THEN ex := E2X; ey := E2Y; ed := E2DIR; ef := E2FRAME; ea := E2ALIVE; END;
+  IF N == 3 THEN ex := E3X; ey := E3Y; ed := E3DIR; ef := E3FRAME; ea := E3ALIVE; END;
+  IF N == 4 THEN ex := E4X; ey := E4Y; ed := E4DIR; ef := E4FRAME; ea := E4ALIVE; END;
+  IF N == 5 THEN ex := E5X; ey := E5Y; ed := E5DIR; ef := E5FRAME; ea := E5ALIVE; END;
+  IF N == 6 THEN ex := E6X; ey := E6Y; ed := E6DIR; ef := E6FRAME; ea := E6ALIVE; END;
+  IF N == 7 THEN ex := E7X; ey := E7Y; ed := E7DIR; ef := E7FRAME; ea := E7ALIVE; END;
+  IF N == 8 THEN ex := E8X; ey := E8Y; ed := E8DIR; ef := E8FRAME; ea := E8ALIVE; END;
+
+  IF ea == 1 THEN
+    // Move
+    ex := ex + ed * sp;
+    ef := (ef + 1) MOD 20;
+
+    // Check patrol bounds
+    IF ex < mn OR ex > mxx THEN
+      ed := -ed;
+      ex := ex + ed * sp * 2;
+    END;
+
+    // Check solid block collision
+    IF EnemyHitsBlock(ex, ey) == 1 THEN
+      ed := -ed;
+      ex := ex + ed * sp * 3;
+    END;
+
+    IF N == 1 THEN E1X := ex; E1DIR := ed; E1FRAME := ef; END;
+    IF N == 2 THEN E2X := ex; E2DIR := ed; E2FRAME := ef; END;
+    IF N == 3 THEN E3X := ex; E3DIR := ed; E3FRAME := ef; END;
+    IF N == 4 THEN E4X := ex; E4DIR := ed; E4FRAME := ef; END;
+    IF N == 5 THEN E5X := ex; E5DIR := ed; E5FRAME := ef; END;
+    IF N == 6 THEN E6X := ex; E6DIR := ed; E6FRAME := ef; END;
+    IF N == 7 THEN E7X := ex; E7DIR := ed; E7FRAME := ef; END;
+    IF N == 8 THEN E8X := ex; E8DIR := ed; E8FRAME := ef; END;
+  END;
+END;
+
+// ============================================================
+// DRAW ONE ENEMY
+// ============================================================
+// Renders one enemy slot (1..8) at its world position minus the camera.
+// Chooses Goomba vs Koopa based on the slot's TYPE field.
+DrawEnemy(N, camx)
+BEGIN
+  IF N == 1 AND E1ALIVE == 1 THEN
+    IF E1TYPE == 2 THEN DESSINE_KOOPA(IP(E1X-camx), E1Y, E1FRAME);
+    ELSE DESSINE_GOOMBA(IP(E1X-camx), E1Y, E1FRAME); END;
+  END;
+  IF N == 2 AND E2ALIVE == 1 THEN
+    IF E2TYPE == 2 THEN DESSINE_KOOPA(IP(E2X-camx), E2Y, E2FRAME);
+    ELSE DESSINE_GOOMBA(IP(E2X-camx), E2Y, E2FRAME); END;
+  END;
+  IF N == 3 AND E3ALIVE == 1 THEN
+    IF E3TYPE == 2 THEN DESSINE_KOOPA(IP(E3X-camx), E3Y, E3FRAME);
+    ELSE DESSINE_GOOMBA(IP(E3X-camx), E3Y, E3FRAME); END;
+  END;
+  IF N == 4 AND E4ALIVE == 1 THEN
+    IF E4TYPE == 2 THEN DESSINE_KOOPA(IP(E4X-camx), E4Y, E4FRAME);
+    ELSE DESSINE_GOOMBA(IP(E4X-camx), E4Y, E4FRAME); END;
+  END;
+  IF N == 5 AND E5ALIVE == 1 THEN
+    IF E5TYPE == 2 THEN DESSINE_KOOPA(IP(E5X-camx), E5Y, E5FRAME);
+    ELSE DESSINE_GOOMBA(IP(E5X-camx), E5Y, E5FRAME); END;
+  END;
+  IF N == 6 AND E6ALIVE == 1 THEN
+    IF E6TYPE == 2 THEN DESSINE_KOOPA(IP(E6X-camx), E6Y, E6FRAME);
+    ELSE DESSINE_GOOMBA(IP(E6X-camx), E6Y, E6FRAME); END;
+  END;
+  IF N == 7 AND E7ALIVE == 1 THEN
+    IF E7TYPE == 2 THEN DESSINE_KOOPA(IP(E7X-camx), E7Y, E7FRAME);
+    ELSE DESSINE_GOOMBA(IP(E7X-camx), E7Y, E7FRAME); END;
+  END;
+  IF N == 8 AND E8ALIVE == 1 THEN
+    IF E8TYPE == 2 THEN DESSINE_KOOPA(IP(E8X-camx), E8Y, E8FRAME);
+    ELSE DESSINE_GOOMBA(IP(E8X-camx), E8Y, E8FRAME); END;
+  END;
+END;
+
+// ============================================================
+// CHECK COLLISION WITH ONE ENEMY
+// Returns 0=nothing, 1=killed, 2=damaged big, 3=death
+// ============================================================
+// Checks Mario vs enemy slot N. On stomp, kills the enemy and awards score;
+// on body contact, either shrinks big Mario or triggers death.
+CheckEnemy(N)
+BEGIN
+  LOCAL ex, ey, ea, r;
+  ex := 0; ey := 0; ea := 0;
+
+  IF N == 1 THEN ex := E1X; ey := E1Y; ea := E1ALIVE; END;
+  IF N == 2 THEN ex := E2X; ey := E2Y; ea := E2ALIVE; END;
+  IF N == 3 THEN ex := E3X; ey := E3Y; ea := E3ALIVE; END;
+  IF N == 4 THEN ex := E4X; ey := E4Y; ea := E4ALIVE; END;
+  IF N == 5 THEN ex := E5X; ey := E5Y; ea := E5ALIVE; END;
+  IF N == 6 THEN ex := E6X; ey := E6Y; ea := E6ALIVE; END;
+  IF N == 7 THEN ex := E7X; ey := E7Y; ea := E7ALIVE; END;
+  IF N == 8 THEN ex := E8X; ey := E8Y; ea := E8ALIVE; END;
+
+  IF ea == 0 THEN RETURN 0; END;
+
+  r := PhysEnemyCollision(MX, MY, MH, VY, BIG, ex, ey);
+
+  IF r(1) == 1 THEN
+    IF N == 1 THEN E1ALIVE := 0; END;
+    IF N == 2 THEN E2ALIVE := 0; END;
+    IF N == 3 THEN E3ALIVE := 0; END;
+    IF N == 4 THEN E4ALIVE := 0; END;
+    IF N == 5 THEN E5ALIVE := 0; END;
+    IF N == 6 THEN E6ALIVE := 0; END;
+    IF N == 7 THEN E7ALIVE := 0; END;
+    IF N == 8 THEN E8ALIVE := 0; END;
+    VY := r(3); SCORE := SCORE + 100;
+    RETURN 1;
+  END;
+  IF r(2) == 1 THEN
+    BIG := r(4); MH := r(5); MY := r(6);
+    RETURN 2;
+  END;
+  IF r(2) == 2 THEN
+    STATE := 1; DEATHTIMER := 0; VY := -6;
+    RETURN 3;
+  END;
+  RETURN 0;
+END;
+
+
+
+// ============================================================
+// DRAW SCENE (uses only global variables)
+// ============================================================
+// Master render pass for the in-game view. Draws sky, hills, ground, clouds,
+// flag, blocks, active pickups, floating coins, bonus lives, all enemies,
+// then Mario (with walk animation), and finally the HUD overlay.
+DrawScene(FRAME)
+BEGIN
+  LOCAL J, NW, cols;
+  NW := SIZE(LEVEL_BLOCKS(ACTIVE_LEVEL));
+
+  // Choose colors depending on DARK_MODE
+  IF DARK_MODE == 1 THEN
+    cols := LEVEL_COLORS_DARK(ACTIVE_LEVEL);
+  ELSE
+    cols := LEVEL_COLORS(ACTIVE_LEVEL);
+  END;
+
+  DESSINE_CIEL(cols(1), cols(2));
+  DESSINE_COLLINES(CAMX, cols(3), cols(4));
+  DESSINE_SOL(CAMX, PIT1S, PIT1E, PIT2S, PIT2E, cols(5), cols(6));
+  DESSINE_NUAGES(CAMX, cols(7));
+  DESSINE_DRAPEAU(FLAGX, FLAGY, CAMX, cols(8), cols(9));
+  DESSINE_TOUS_BLOCS(LEVEL_BLOCKS(ACTIVE_LEVEL), NW, CAMX);
+
+  IF OAON == 1 THEN
+    IF OAT == 1 THEN DESSINE_PIECE(IP(OAX-CAMX), IP(OAY)); END;
+    IF OAT == 2 THEN DESSINE_CHAMPIGNON(IP(OAX-CAMX), IP(OAY)); END;
+  IF OAT == 3 THEN DESSINE_VIE_BONUS(IP(OAX-CAMX), IP(OAY), FRAME); END;
+  END;
+  IF OBON == 1 THEN
+    IF OBT == 1 THEN DESSINE_PIECE(IP(OBX-CAMX), IP(OBY)); END;
+    IF OBT == 2 THEN DESSINE_CHAMPIGNON(IP(OBX-CAMX), IP(OBY)); END;
+  IF OAT == 3 THEN DESSINE_VIE_BONUS(IP(OAX-CAMX), IP(OAY), FRAME); END;
+  END;
+  IF OCON == 1 THEN
+    IF OCT == 1 THEN DESSINE_PIECE(IP(OCX-CAMX), IP(OCY)); END;
+    IF OCT == 2 THEN DESSINE_CHAMPIGNON(IP(OCX-CAMX), IP(OCY)); END;
+  IF OAT == 3 THEN DESSINE_VIE_BONUS(IP(OAX-CAMX), IP(OAY), FRAME); END;
+  END;
+
+
+    // Floating coins
+  IF P1ON == 1 THEN DESSINE_PIECE_BONUS(IP(P1X-CAMX), IP(P1Y), FRAME); END;
+  IF P2ON == 1 THEN DESSINE_PIECE_BONUS(IP(P2X-CAMX), IP(P2Y), FRAME); END;
+  IF P3ON == 1 THEN DESSINE_PIECE_BONUS(IP(P3X-CAMX), IP(P3Y), FRAME); END;
+  IF P4ON == 1 THEN DESSINE_PIECE_BONUS(IP(P4X-CAMX), IP(P4Y), FRAME); END;
+  IF P5ON == 1 THEN DESSINE_PIECE_BONUS(IP(P5X-CAMX), IP(P5Y), FRAME); END;
+
+  // Bonus lives
+  IF L1ON == 1 THEN DESSINE_VIE_BONUS(IP(L1X-CAMX), IP(L1Y), FRAME); END;
+  IF L2ON == 1 THEN DESSINE_VIE_BONUS(IP(L2X-CAMX), IP(L2Y), FRAME); END;
+
+  FOR J FROM 1 TO 8 DO
+    DrawEnemy(J, CAMX);
+  END;
+
+  IF NOT ONGROUND OR ABS(VX) > 0.3 THEN WALKFRAME := (WALKFRAME + 1) MOD 12; END;
+  DESSINE_MARIO(IP(MX-CAMX), IP(MY), DIR, BIG, STATE, WALKFRAME, ONGROUND);
+  DESSINE_HUD(SCORE, LIVES, COINS);
+END;
+
+
+
+
+// ============================================================
+// LOAD LEVEL
+// ============================================================
+// Loads all per-level data into the flat globals: metadata (bounds, pits,
+// physics), color palette, and enemy slots 1..NENEMIES.
+LoadLevel(levelnum)
+BEGIN
+  LOCAL meta, cols, en, i;
+  meta := LEVEL_META(levelnum);
+  MAX_X := meta(1);
+  FLAGX := meta(2); FLAGY := meta(3);
+  PIT1S := meta(4); PIT1E := meta(5);
+  PIT2S := meta(6); PIT2E := meta(7);
+  NEXT_LVL := meta(8);
+  NENEMIES := meta(9);
+  GRAV := meta(10); JUMPV := meta(11); MAXSPD := meta(12);
+  ACCEL := meta(13); FRICTION := meta(14);
+
+  cols := LEVEL_COLORS(levelnum);
+  SKY1 := cols(1); SKY2 := cols(2);
+  HILL1 := cols(3); HILL2 := cols(4);
+  SOL1 := cols(5); SOL2 := cols(6);
+  NUA := cols(7);
+  DRAP1 := cols(8); DRAP2 := cols(9);
+
+  E1ALIVE := 0; E2ALIVE := 0; E3ALIVE := 0; E4ALIVE := 0;
+  E5ALIVE := 0; E6ALIVE := 0; E7ALIVE := 0; E8ALIVE := 0;
+
+  FOR i FROM 1 TO NENEMIES DO
+    en := LEVEL_ENEMIES(levelnum, i);
+    IF i == 1 THEN E1X := en(1); E1Y := en(2); E1DIR := en(3); E1ALIVE := en(4); E1FRAME := en(5); E1TYPE := en(6); END;
+    IF i == 2 THEN E2X := en(1); E2Y := en(2); E2DIR := en(3); E2ALIVE := en(4); E2FRAME := en(5); E2TYPE := en(6); END;
+    IF i == 3 THEN E3X := en(1); E3Y := en(2); E3DIR := en(3); E3ALIVE := en(4); E3FRAME := en(5); E3TYPE := en(6); END;
+    IF i == 4 THEN E4X := en(1); E4Y := en(2); E4DIR := en(3); E4ALIVE := en(4); E4FRAME := en(5); E4TYPE := en(6); END;
+    IF i == 5 THEN E5X := en(1); E5Y := en(2); E5DIR := en(3); E5ALIVE := en(4); E5FRAME := en(5); E5TYPE := en(6); END;
+    IF i == 6 THEN E6X := en(1); E6Y := en(2); E6DIR := en(3); E6ALIVE := en(4); E6FRAME := en(5); E6TYPE := en(6); END;
+    IF i == 7 THEN E7X := en(1); E7Y := en(2); E7DIR := en(3); E7ALIVE := en(4); E7FRAME := en(5); E7TYPE := en(6); END;
+    IF i == 8 THEN E8X := en(1); E8Y := en(2); E8DIR := en(3); E8ALIVE := en(4); E8FRAME := en(5); E8TYPE := en(6); END;
+  END;
+END;
+
+
+
+// ============================================================
+// GENERATE A RANDOM LEVEL
+// - Pipes on the ground (never floating)
+// - Blocks in groups of 2-3
+// - Floating coins
+// - Extra lives
+// ============================================================
+// Procedurally builds level data for slot `n`: random pits, block clusters,
+// pipes, enemies with varied type, palette (one of two themes), and links the
+// previous level's NEXT_LVL to this one.
+GENERATE_LEVEL(n)
+BEGIN
+  LOCAL i, j, k, x, blocks;
+  LOCAL enemies, cols, cols2, meta;
+  LOCAL lastX, p1s, p1e, p2s, p2e, num_en;
+
+  blocks := {};
+  enemies := {};
+
+  // Pits
+  p1s := 0; p1e := 0; p2s := 0; p2e := 0;
+  IF RANDOM(2) < 1 THEN
+    p1s := 300 + IP(RANDOM(80));
+    p1e := p1s + 30 + IP(RANDOM(20));
+  END;
+  IF RANDOM(3) < 1 THEN
+    p2s := p1e + 200 + IP(RANDOM(100));
+    p2e := p2s + 30 + IP(RANDOM(20));
+  END;
+
+  // Blocks
+  i := 1;
+  lastX := 150;
+  FOR j FROM 1 TO 3 + IP(RANDOM(3)) DO
+    x := lastX + 50 + IP(RANDOM(40));
+    IF NOT((x + 48 > p1s AND x < p1e) OR (x + 48 > p2s AND x < p2e)) THEN
+      FOR k FROM 1 TO 2 + IP(RANDOM(2)) DO
+        blocks(i) := {x + (k-1)*16, 128, 1 + IP(RANDOM(2)), 0};
+        i := i + 1;
+      END;
+      lastX := x + 48;
+    END;
+  END;
+
+  // Pipes
+  FOR j FROM 1 TO 1 + IP(RANDOM(2)) DO
+    x := lastX + 60 + IP(RANDOM(40));
+    IF NOT((x + 32 > p1s AND x < p1e) OR (x + 32 > p2s AND x < p2e)) THEN
+      blocks(i) := {x, 160, 4, 0};
+      i := i + 1;
+      blocks(i) := {x + 16, 160, 4, 0};
+      i := i + 1;
+      lastX := x + 32;
+    END;
+  END;
+
+  // Enemies (mixed type: 1 = Goomba, 2 = Koopa)
+  j := 1;
+  num_en := 2 + IP(RANDOM(4));
+  FOR i FROM 1 TO num_en DO
+    x := 200 + i * 70 + IP(RANDOM(40));
+    IF NOT((x + 16 > p1s AND x < p1e) OR (x + 16 > p2s AND x < p2e)) THEN
+      enemies(j) := {x, 160, -1, 1, 0, 1 + IP(RANDOM(2)), 0.8, x - 35, x + 35};
+      j := j + 1;
+    END;
+  END;
+
+  // Metadata
+  meta := {lastX + 200, lastX + 160, 96, p1s, p1e, p2s, p2e, 0, j - 1,
+           0.45, -7.0, 3.5, 0.22, 0.14};
+
+  // Colors
+  IF RANDOM(2) < 1 THEN
+    cols := {{92,148,252}, {124,176,252}, {0,168,0}, {60,200,60},
+             {200,76,12}, {232,116,40}, {255,255,255}, {0,100,0}, {255,216,0}};
+    cols2 := {{46,74,126}, {62,88,126}, {0,84,0}, {30,100,30},
+              {100,38,6}, {116,58,20}, {127,127,127}, {0,50,0}, {127,108,0}};
+  ELSE
+    cols := {{60,100,180}, {80,120,200}, {0,120,0}, {0,150,0},
+             {100,40,10}, {150,70,20}, {200,200,220}, {0,100,0}, {255,100,100}};
+    cols2 := {{30,50,90}, {40,60,100}, {0,60,0}, {0,75,0},
+              {50,20,5}, {75,35,10}, {100,100,110}, {0,50,0}, {127,50,50}};
+  END;
+
+  LEVEL_META(n)        := meta;
+  LEVEL_BLOCKS(n)      := blocks;
+  LEVEL_ENEMIES(n)     := enemies;
+  LEVEL_COLORS(n)      := cols;
+  LEVEL_COLORS_DARK(n) := cols2;
+
+  IF n > 1 THEN
+    meta := LEVEL_META(n - 1);
+    meta(8) := n;
+    LEVEL_META(n - 1) := meta;
+  END;
+END;
+
+// ============================================================
+// GENERATE PICKUPS (coins and extra lives)
+// Called after GENERATE_LEVEL
+// ============================================================
+// Places up to 5 floating coins and (50 % chance) 1 bonus life, avoiding pits.
+GENERATE_PICKUPS(n)
+BEGIN
+  LOCAL i, x, y, meta, p1s, p1e, p2s, p2e;
+
+  meta := LEVEL_META(n);
+  p1s := meta(4); p1e := meta(5);
+  p2s := meta(6); p2e := meta(7);
+
+  P1ON := 0; P2ON := 0; P3ON := 0; P4ON := 0; P5ON := 0;
+  L1ON := 0; L2ON := 0;
+
+  // 5 floating coins distributed
+  FOR i FROM 1 TO 5 DO
+    x := 150 + i * 60 + IP(RANDOM(30));
+    y := 100 + IP(RANDOM(30));
+
+    IF NOT((x + 16 > p1s AND x < p1e) OR (x + 16 > p2s AND x < p2e)) THEN
+      IF i == 1 THEN P1ON := 1; P1X := x; P1Y := y; END;
+      IF i == 2 THEN P2ON := 1; P2X := x; P2Y := y; END;
+      IF i == 3 THEN P3ON := 1; P3X := x; P3Y := y; END;
+      IF i == 4 THEN P4ON := 1; P4X := x; P4Y := y; END;
+      IF i == 5 THEN P5ON := 1; P5X := x; P5Y := y; END;
+    END;
+  END;
+
+  // Bonus life: 50 % chance
+  IF RANDOM(2) < 1 THEN
+    x := 400 + IP(RANDOM(100));
+    y := 100 + IP(RANDOM(30));
+    IF NOT((x + 16 > p1s AND x < p1e) OR (x + 16 > p2s AND x < p2e)) THEN
+      L1ON := 1; L1X := x; L1Y := y;
+    END;
+  END;
+END;
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================ 
+// Shows the help/controls screen on G0, then waits for a key press.
+// Version number is displayed at the bottom.
+AFFICHE_HELP()
+BEGIN
+  LOCAL k;
+  RECT_P(G0, 0, 0, 320, 240, RGB(255, 255, 255));
+  TEXTOUT_P(T("HELP_TITLE"), G0, 10, 10, 2, RGB(0, 0, 128));
+  TEXTOUT_P(T("HELP_LEFT"),  G0, 20, 50, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_RIGHT"), G0, 20, 70, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_JUMP"),  G0, 20, 90, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_QUIT"),  G0, 20, 110, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_SYMB"),  G0, 20, 140, 2, RGB(0, 0, 128));
+  TEXTOUT_P(T("HELP_PLOT"),  G0, 20, 160, 2, RGB(0, 0, 128));
+  TEXTOUT_P(T("HELP_HINT"),  G0, 20, 210, 1, RGB(128, 0, 0));
+
+    // Version (bottom-right corner)
+  TEXTOUT_P(APP_VERSION, G0, 270, 220, 1, RGB(120, 120, 120));
+
+  FREEZE;
+  k := WAIT(0);
+  FREEZE;
+END;
+
+
+
+
+
+// ============================================================
+// LOAD LEVEL
+// ============================================================
+// Main gameplay loop for one level. Resets Mario/objects, then runs the
+// real-time update/render loop: input, pause/help handling, enemy stepping,
+// Mario physics, block/ground/camera collision, object updates, enemy
+// collisions, flag detection, pickups, and rendering.
+// Returns:
+//   -2  -> level finished (or game finished if MAX_LEVEL reached)
+//    0  -> game over (out of lives)
+//   >0  -> next level number to load
+NIVEAU(levelnum)
+BEGIN
+  LOCAL I, J, r, sp, FRAME, eb;
+  LOCAL GL, GR, GJ, KT;
+
+  ACTIVE_LEVEL := levelnum;
+
+  LoadLevel(levelnum);
+
+  P1ON := 0; P1X := 0; P1Y := 0;
+  L1ON := 0; L1X := 0; L1Y := 0;
+  MX := 40; MY := 160; VX := 0; VY := 0; CAMX := 0;
+  ONGROUND := 1; DIR := 1; WALKFRAME := 0; JUMPHOLD := 0;
+  STATE := 0; DEATHTIMER := 0;
+  IF BIG == 1 THEN MH := 24; ELSE MH := 16; END;
+  MY := 176 - MH;
+
+  OAON := 0; OBON := 0; OCON := 0;
+  ENDSCREEN := 0; ENDTIMER := 0;
+  JUMPSPRITE := 0; JUMPSPEED := 0;
+  DARK_MODE := 0;
+
+  DIMGROB_P(G1, 320, 240);
+  FRAME := 0;
+
+  WHILE 1 DO
+    GL := (ISKEYDOWN(7) == 1);
+    GR := (ISKEYDOWN(8) == 1);
+    GJ := (ISKEYDOWN(2) == 1 OR ISKEYDOWN(30) == 1);
+
+    // Pause (key 4)
+    IF ISKEYDOWN(4) == 1 THEN
+      WHILE ISKEYDOWN(4) == 1 DO WAIT(0.02); END;
+      DARK_MODE := 1;
+      DrawScene(FRAME);
+      DESSINE_PAUSE();
+      BLIT_P(G0, G1);
+      WHILE ISKEYDOWN(30) == 0 DO WAIT(0.05); END;
+      WHILE ISKEYDOWN(30) == 1 DO WAIT(0.02); END;
+      DARK_MODE := 0;
+    END;
+
+    // Help (key 3)
+    IF ISKEYDOWN(3) == 1 THEN
+      WHILE ISKEYDOWN(3) == 1 DO WAIT(0.02); END;
+      AFFICHE_HELP();
+    END;
+
+    I := 0;
+    KT := GETKEY();
+    WHILE KT != -1 AND I < 10 DO
+      KT := GETKEY();
+      I := I + 1;
+    END;
+
+    IF BIG == 1 THEN MH := 24; ELSE MH := 16; END;
+
+    FOR J FROM 1 TO NENEMIES DO
+      sp := LEVEL_ENEMIES(ACTIVE_LEVEL, J);
+      StepEnemy(J, sp(7), sp(8), sp(9));
+    END;
+
+    IF STATE == 1 THEN
+      // Death animation / respawn
+      DEATHTIMER := DEATHTIMER + 1;
+      VY := VY + GRAV;
+      MY := MY + VY;
+      IF MY > 240 OR DEATHTIMER > 90 THEN
+        IF LIVES > 1 THEN
+          LIVES := LIVES - 1;
+          MX := 40; MY := 160; VX := 0; VY := 0; CAMX := 0;
+          STATE := 0; DEATHTIMER := 0; BIG := 0; MH := 16;
+        ELSE
+          LIVES := 0;
+          RETURN 0;
+        END;
+      END;
+    ELSE
+
+    // Horizontal input
+    r := PhysHorizontal(GL, GR, VX, DIR, MAXSPD, ACCEL, FRICTION);
+    VX := r(1); DIR := r(2);
+
+    // Jump input
+    r := PhysJump(GJ, ONGROUND, VY, JUMPHOLD, JUMPV);
+    VY := r(1); ONGROUND := r(2); JUMPHOLD := r(3);
+
+    // Integrate position
+    r := PhysIntegrate(MX, MY, VX, VY, GRAV);
+    MX := r(1); MY := r(2); VX := r(3); VY := r(4); PX := r(5); PY := r(6);
+
+    // Fell into a pit
+    IF MY > 200 THEN
+      IF LIVES > 1 THEN
+        LIVES := LIVES - 1;
+        MX := 40; MY := 160; VX := 0; VY := 0; CAMX := 0;
+        STATE := 0; DEATHTIMER := 0; BIG := 0; MH := 16;
+      ELSE
+        LIVES := 0;
+        RETURN 0;
+      END;
+    END;
+
+    // Block collisions + question-block hit handling
+    r := PhysBlockCollisions(LEVEL_BLOCKS(ACTIVE_LEVEL), SIZE(LEVEL_BLOCKS(ACTIVE_LEVEL)), MX, MY, MH, VX, VY, PX, PY, ONGROUND);
+    MX := r(1); MY := r(2); VX := r(3); VY := r(4); ONGROUND := r(5);
+    IF r(6) == 1 THEN
+      eb := LEVEL_BLOCKS(ACTIVE_LEVEL, r(7));
+      eb(4) := 1;
+      LEVEL_BLOCKS(ACTIVE_LEVEL, r(7)) := eb;
+      sp := SpawnFromQB(r(7), r(8), r(9), BIG);
+      IF OAON == 0 THEN
+        OAON := 1; OAT := sp(1); OAX := sp(2); OAY := sp(3); OAVY := sp(4); OATIM := 0;
+      ELSE
+        IF OBON == 0 THEN
+          OBON := 1; OBT := sp(1); OBX := sp(2); OBY := sp(3); OBVY := sp(4); OBTIM := 0;
+        ELSE
+          IF OCON == 0 THEN
+            OCON := 1; OCT := sp(1); OCX := sp(2); OCY := sp(3); OCVY := sp(4); OCTIM := 0;
+          END;
+        END;
+      END;
+    END;
+
+    // Ground collision (respects pits)
+    r := PhysGroundCollision(MX, MY, MH, VY, ONGROUND, PIT1S, PIT1E, PIT2S, PIT2E);
+    MY := r(1); VY := r(2); ONGROUND := r(3);
+
+    // Anti-stuck safeguard
+    r := PhysAntiStuck(LEVEL_BLOCKS(ACTIVE_LEVEL), SIZE(LEVEL_BLOCKS(ACTIVE_LEVEL)), MX, MY, MH, VY, ONGROUND);
+    MY := r(1); VY := r(2); ONGROUND := r(3);
+
+    // Camera follow
+    r := PhysCamera(MX, VX, CAMX, MAX_X);
+    MX := r(1); VX := r(2); CAMX := r(3);
+
+    // Update pickup slot A
+    r := UpdateObjSlot(OAON, OAT, OAX, OAY, OAVY, OATIM, MX, MY, MH, GRAV);
+    OAON := r(1); OAT := r(2); OAX := r(3); OAY := r(4); OAVY := r(5); OATIM := r(6);
+    IF r(7) == 1 THEN BIG := 1; MH := 24; MY := MY - 8; END;
+    IF r(7) == 2 THEN LIVES := LIVES + 1; SCORE := SCORE + 300; END;
+    SCORE := SCORE + r(8); COINS := COINS + r(9);
+    IF r(10) == 1 THEN OAON := 0; END;
+
+    // Update pickup slot B
+    r := UpdateObjSlot(OBON, OBT, OBX, OBY, OBVY, OBTIM, MX, MY, MH, GRAV);
+    OBON := r(1); OBT := r(2); OBX := r(3); OBY := r(4); OBVY := r(5); OBTIM := r(6);
+    IF r(7) == 1 THEN BIG := 1; MH := 24; MY := MY - 8; END;
+    IF r(7) == 2 THEN LIVES := LIVES + 1; SCORE := SCORE + 300; END;
+    SCORE := SCORE + r(8); COINS := COINS + r(9);
+    IF r(10) == 1 THEN OBON := 0; END;
+
+    // Update pickup slot C
+    r := UpdateObjSlot(OCON, OCT, OCX, OCY, OCVY, OCTIM, MX, MY, MH, GRAV);
+    OCON := r(1); OCT := r(2); OCX := r(3); OCY := r(4); OCVY := r(5); OCTIM := r(6);
+    IF r(7) == 1 THEN BIG := 1; MH := 24; MY := MY - 8; END;
+    IF r(7) == 2 THEN LIVES := LIVES + 1; SCORE := SCORE + 300; END;
+    SCORE := SCORE + r(8); COINS := COINS + r(9);
+    IF r(10) == 1 THEN OCON := 0; END;
+
+    // Enemy collisions
+    I := CheckEnemy(1); I := CheckEnemy(2); I := CheckEnemy(3);
+    I := CheckEnemy(4); I := CheckEnemy(5);
+
+    // Flag reached -> level end
+    IF MX >= FLAGX - 20 THEN
+      ENDSCREEN := 1;
+      ENDTIMER := ENDTIMER + 1;
+      r := PhysEndFlagJump(JUMPSPRITE, JUMPSPEED, MY);
+      JUMPSPRITE := r(1); JUMPSPEED := r(2); MY := r(3);
+
+      IF ENDTIMER > 30 AND ISKEYDOWN(30) == 1 THEN
+        IF NEXT_LVL == 0 THEN
+          RETURN -2;
+        ELSE
+          RETURN NEXT_LVL;
+        END;
+      END;
+
+      IF ENDTIMER > 90 THEN
+        IF NEXT_LVL == 0 THEN
+          RETURN -2;
+        ELSE
+          RETURN NEXT_LVL;
+        END;
+      END;
+    END;
+
+    END; // end of ELSE (Mario alive)
+
+    // Floating coins
+    IF P1ON == 1 AND ABS((MX+6)-(P1X+8)) < 12 AND ABS((MY+MH/2)-(P1Y+8)) < 14 THEN
+      P1ON := 0; COINS := COINS + 1; SCORE := SCORE + 50;
+    END;
+    IF P2ON == 1 AND ABS((MX+6)-(P2X+8)) < 12 AND ABS((MY+MH/2)-(P2Y+8)) < 14 THEN
+      P2ON := 0; COINS := COINS + 1; SCORE := SCORE + 50;
+    END;
+    IF P3ON == 1 AND ABS((MX+6)-(P3X+8)) < 12 AND ABS((MY+MH/2)-(P3Y+8)) < 14 THEN
+      P3ON := 0; COINS := COINS + 1; SCORE := SCORE + 50;
+    END;
+    IF P4ON == 1 AND ABS((MX+6)-(P4X+8)) < 12 AND ABS((MY+MH/2)-(P4Y+8)) < 14 THEN
+      P4ON := 0; COINS := COINS + 1; SCORE := SCORE + 50;
+    END;
+    IF P5ON == 1 AND ABS((MX+6)-(P5X+8)) < 12 AND ABS((MY+MH/2)-(P5Y+8)) < 14 THEN
+      P5ON := 0; COINS := COINS + 1; SCORE := SCORE + 50;
+    END;
+
+    // Bonus lives
+    IF L1ON == 1 AND ABS((MX+6)-(L1X+8)) < 12 AND ABS((MY+MH/2)-(L1Y+8)) < 14 THEN
+      L1ON := 0; LIVES := LIVES + 1; SCORE := SCORE + 200;
+    END;
+    IF L2ON == 1 AND ABS((MX+6)-(L2X+8)) < 12 AND ABS((MY+MH/2)-(L2Y+8)) < 14 THEN
+      L2ON := 0; LIVES := LIVES + 1; SCORE := SCORE + 200;
+    END;
+
+    DrawScene(FRAME);
+    IF ENDSCREEN == 1 THEN DESSINE_LEVEL_END(FRAME); END;
+    BLIT_P(G0, G1);
+    FRAME := FRAME + 1;
+    WAIT(0.025);
+  END;
+
+  RETURN 0;
+END;
+
+
+
+// Resets all game/session globals to their defaults.
+InitGlobals()
+BEGIN
+  SCORE := 0;
+  LIVES := 3;
+  COINS := 0;
+  BIG := 0;
+  userLives := 3;
+  userDifficulty := 2;
+  GAMESTATE := 0;
+  TITLETIMER := 0;
+  NEXTSTATE := 0;
+END;
+
+
+// ============================================================
+// ROUNDED BOX HELPER (drawn on G1)
+// Draws a filled rounded rectangle with a 2px radius.
+// ============================================================
+// Draws a filled rounded rectangle (radius R) on G1 with fill color CFILL
+// and border color CBORDER. Corner rounding is approximated with shrinking
+// row/column rectangles.
+DESSINE_BOX_ARRONDI(x1, y1, x2, y2, R, CFILL, CBORDER)
+BEGIN
+  LOCAL I, X;
+  // Main body (without corners)
+  RECT_P(G1, x1 + R, y1, x2 - R, y2, CFILL);
+  RECT_P(G1, x1, y1 + R, x2, y2 - R, CFILL);
+  // Rounded corners (approximated by shrinking rectangles)
+  FOR I FROM 0 TO R DO
+    X := x1 + R - I;
+    RECT_P(G1, X, y1 + R - I, x1 + R, y1 + R - I, CFILL);
+    X := x2 - R + I;
+    RECT_P(G1, x2 - R, y1 + R - I, X, y1 + R - I, CFILL);
+    X := x1 + R - I;
+    RECT_P(G1, X, y2 - R + I, x1 + R, y2 - R + I, CFILL);
+    X := x2 - R + I;
+    RECT_P(G1, x2 - R, y2 - R + I, X, y2 - R + I, CFILL);
+  END;
+  // Border (top, bottom, left, right)
+  RECT_P(G1, x1 + R, y1, x2 - R, y1 + 1, CBORDER);
+  RECT_P(G1, x1 + R, y2 - 1, x2 - R, y2, CBORDER);
+  RECT_P(G1, x1, y1 + R, x1 + 1, y2 - R, CBORDER);
+  RECT_P(G1, x2 - 1, y1 + R, x2, y2 - R, CBORDER);
+END;
+
+// ============================================================
+// DRAW BIG ITALIC TEXT
+// Draws text starting at absolute X position px, with an
+// italic-like slant simulated by shifting each vertical pass.
+// The caller is responsible for centering: measure the width
+// once, compute the start X, then call this with px.
+// ============================================================
+// ============================================================
+// DRAW BIG ITALIC TEXT
+// First parameter is the ABSOLUTE start X (not a center).
+// The caller is responsible for centering.
+// ============================================================
+DrawBigItalicText(txt, startX, startY, fs, sc, col, slant)
+BEGIN
+  LOCAL i, j, h;
+
+  IF fs == 7 THEN h := 22; END;
+  IF fs == 6 THEN h := 20; END;
+  IF fs == 5 THEN h := 18; END;
+  IF fs == 4 THEN h := 16; END;
+  IF fs == 3 THEN h := 14; END;
+  IF fs == 2 THEN h := 12; END;
+  IF fs == 1 THEN h := 10; END;
+  IF fs == 0 THEN h := 8;  END;
+
+  FOR j FROM 0 TO sc - 1 DO
+    FOR i FROM 0 TO sc - 1 DO
+      TEXTOUT_P(txt, G1, startX + i + IP((h - j) * slant),
+                startY + j, fs, col);
+    END;
+  END;
+END;
+
+// ============================================================
+// DRAW TITLE SCREEN
+// "hp-plumber" title is centered at startX = 90 (measured
+// visually with a magenta center line — see comments).
+// No automatic width measurement: the firmware returns
+// inconsistent values, so the position is hard-coded.
+// ============================================================
+DrawTitleScreen(timer)
+BEGIN
+  LOCAL I, PX, PY;
+
+  DIMGROB_P(G1, 320, 240);
+
+  // ---- Sky ----
+  RECT_P(G1, 0, 0, 320, 240, RGB(92, 148, 252));
+  RECT_P(G1, 0, 60, 320, 200, RGB(124, 176, 252));
+
+  // ---- Clouds ----
+  RECT_P(G1, 30, 40, 80, 55, RGB(255, 255, 255));
+  RECT_P(G1, 40, 35, 70, 55, RGB(255, 255, 255));
+  RECT_P(G1, 240, 30, 290, 45, RGB(255, 255, 255));
+  RECT_P(G1, 250, 25, 280, 45, RGB(255, 255, 255));
+
+  // ---- Ground ----
+  RECT_P(G1, 0, 176, 320, 240, RGB(200, 76, 12));
+  RECT_P(G1, 0, 176, 320, 180, RGB(148, 56, 12));
+  FOR I FROM 0 TO 20 DO
+    RECT_P(G1, I*16, 184, I*16+8, 190, RGB(232, 116, 40));
+  END;
+
+  // ============================================
+  // TITLE "hp-plumber" — centered at startX = 90
+  // Shadow drawn first (offset +3,+3), then main text.
+  // ============================================
+  DrawBigItalicText("hp-plumber", 90 + 3, 33, 7, 2, RGB(60, 0, 0), 0.18);
+  DrawBigItalicText("hp-plumber", 90,     30, 7, 2, RGB(216, 40, 0), 0.18);
+
+  // ============================================
+  // SUBTITLE — centered manually
+  // ============================================
+  TEXTOUT_P(T("HP_PRIME_EDITION"), G1, 115, 104, 1, RGB(255, 255, 255));
+  
+    // ---- VERSION (under subtitle) ----
+  TEXTOUT_P(APP_VERSION, G1, 145, 116, 1, RGB(255, 255, 255));
+
+  // ============================================
+  // BLINKING "PRESS ENTER" — centered manually
+  // ============================================
+  IF (timer MOD 60) < 40 THEN
+    TEXTOUT_P(T("START"), G1, 105, 126, 2, RGB(255, 216, 0));
+  END;
+
+  // ============================================
+  // Animated Mario (bouncing above ground)
+  // ============================================
+  PX := 145;
+  PY := 156 - IP(30 * ABS(SIN((timer MOD 60) * 3.14159 / 60)));
+
+  RECT_P(G1, PX + 3, 174, PX + 13, 176, RGB(120, 50, 20));
+
+  // Cap
+  RECT_P(G1, PX, PY, PX+14, PY+3, RGB(216, 40, 0));
+  RECT_P(G1, PX, PY+2, PX+15, PY+5, RGB(216, 40, 0));
+  IF timer MOD 120 < 60 THEN
+    RECT_P(G1, PX+10, PY+2, PX+16, PY+5, RGB(180, 30, 0));
+  ELSE
+    RECT_P(G1, PX-3, PY+2, PX+3, PY+5, RGB(180, 30, 0));
+  END;
+
+  // Face
+  RECT_P(G1, PX+2, PY+5, PX+13, PY+11, RGB(252, 188, 136));
+  RECT_P(G1, PX+2, PY+6, PX+4, PY+10, RGB(80, 40, 10));
+  RECT_P(G1, PX+10, PY+6, PX+13, PY+8, RGB(80, 40, 10));
+  RECT_P(G1, PX+9, PY+6, PX+11, PY+9, RGB(0, 0, 0));
+  RECT_P(G1, PX+4, PY+9, PX+12, PY+11, RGB(80, 40, 10));
+
+  // Body
+  RECT_P(G1, PX+1, PY+11, PX+13, PY+15, RGB(216, 40, 0));
+  PIXON_P(G1, PX+3, PY+13, RGB(255, 216, 0));
+  PIXON_P(G1, PX+10, PY+13, RGB(255, 216, 0));
+  RECT_P(G1, PX+2, PY+15, PX+12, PY+18, RGB(0, 80, 192));
+
+  // Shoes
+  IF (timer MOD 20) < 10 THEN
+    RECT_P(G1, PX, PY+17, PX+5, PY+20, RGB(80, 40, 0));
+    RECT_P(G1, PX+8, PY+17, PX+14, PY+20, RGB(80, 40, 0));
+  ELSE
+    RECT_P(G1, PX+1, PY+17, PX+6, PY+20, RGB(80, 40, 0));
+    RECT_P(G1, PX+7, PY+16, PX+14, PY+20, RGB(80, 40, 0));
+  END;
+END;
+
+
+// ============================================================
+// GAME OVER SCREEN (soft colors, rounded, centered)
+// ============================================================
+// Draws the game-over overlay: dark blue-grey background, rounded panel,
+// centered "GAME OVER", centered score line, and a centered hint.
+DESSINE_GAME_OVER()
+BEGIN
+  LOCAL s, w;
+  // Dark blue-grey background (softer than pure red)
+  RECT_P(G1, 0, 0, 320, 240, RGB(40, 50, 70));
+
+  // Rounded panel (light grey-blue)
+  DESSINE_BOX_ARRONDI(40, 55, 280, 185, 12, RGB(200, 215, 230), RGB(80, 100, 130));
+
+  // Centered "GAME OVER" title
+  // Size 2 font ~8 px per char. "GAME OVER" = 9 chars = ~72 px. Center: 160 - 36 = 124
+    TEXTOUT_P(T("GAME_OVER_TITLE"), G1, 124, 75, 2, RGB(120, 40, 40));
+
+  // Centered score
+  s := T("SCORE") + STRING(SCORE);
+  // Size 1 font ~6 px per char. Length ~ 6 * LEN(s). Center: 160 - 3*LEN(s)
+  w := 3 * SIZE(s);
+  TEXTOUT_P(s, G1, 160 - w, 130, 1, RGB(60, 80, 110));
+
+  // Centered hint
+  s := T("PRESS_KEY");
+  w := 3 * SIZE(s);
+  TEXTOUT_P(s, G1, 160 - w, 210, 1, RGB(180, 190, 200));
+
+  BLIT_P(G0, G1);
+END;
+
+// ============================================================
+// GAME WON SCREEN (soft colors, rounded, centered)
+// ============================================================
+// Draws the victory overlay: dark green-blue background, rounded cream panel,
+// centered "CONGRATULATIONS", subtitle, score, and hint.
+DESSINE_GAME_WON()
+BEGIN
+  LOCAL s, w;
+  // Dark green-blue background (softer than pure blue)
+  RECT_P(G1, 0, 0, 320, 240, RGB(40, 70, 60));
+
+  // Rounded panel (light cream)
+  DESSINE_BOX_ARRONDI(40, 55, 280, 185, 12, RGB(220, 235, 210), RGB(80, 130, 90));
+
+  // Centered "BRAVO !" title
+  // Size 2 font, "BRAVO !" = 7 chars = ~56 px. Center: 160 - 28 = 132
+  TEXTOUT_P(T("WON_TITLE"), G1, 132, 70, 2, RGB(60, 120, 60));
+  // Centered subtitle line 1
+  s := T("WON_LINE1");
+  w := 3 * SIZE(s);
+  TEXTOUT_P(s, G1, 160 - w, 105, 1, RGB(80, 110, 80));
+  // Centered score
+  s := T("SCORE") + STRING(SCORE);
+  w := 3 * SIZE(s);
+  TEXTOUT_P(s, G1, 160 - w, 135, 1, RGB(60, 100, 60));
+  // Centered hint
+  s := T("PRESS_KEY");
+  w := 3 * SIZE(s);
+  TEXTOUT_P(s, G1, 160 - w, 210, 1, RGB(180, 200, 180));
+
+  BLIT_P(G0, G1);
+END;
+
+
+// ============================================================
+// 5x7 bitmap for each letter
+// ============================================================
+// Returns the 5x7 bitmap (7 rows of 5 columns) for uppercase letter c.
+// Returns an empty bitmap as fallback for unsupported characters.
+LETTRE_MAP(c)
+BEGIN
+  IF c == "A" THEN
+    RETURN {{0,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,1,1,1,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1}};
+  END;
+  IF c == "B" THEN
+    RETURN {{1,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,1,1,1,0}};
+  END;
+  IF c == "C" THEN
+    RETURN {{0,1,1,1,1},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0},{0,1,1,1,1}};
+  END;
+  IF c == "D" THEN
+    RETURN {{1,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,1,1,1,0}};
+  END;
+  IF c == "E" THEN
+    RETURN {{1,1,1,1,1},{1,0,0,0,0},{1,0,0,0,0},{1,1,1,1,0},{1,0,0,0,0},{1,0,0,0,0},{1,1,1,1,1}};
+  END;
+  IF c == "F" THEN
+    RETURN {{1,1,1,1,1},{1,0,0,0,0},{1,0,0,0,0},{1,1,1,1,0},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0}};
+  END;
+  IF c == "G" THEN
+    RETURN {{0,1,1,1,1},{1,0,0,0,0},{1,0,0,0,0},{1,0,1,1,1},{1,0,0,0,1},{1,0,0,0,1},{0,1,1,1,0}};
+  END;
+  IF c == "H" THEN
+    RETURN {{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,1,1,1,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1}};
+  END;
+  IF c == "I" THEN
+    RETURN {{1,1,1,1,1},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0},{1,1,1,1,1}};
+  END;
+  IF c == "J" THEN
+    RETURN {{0,0,1,1,1},{0,0,0,1,0},{0,0,0,1,0},{0,0,0,1,0},{0,0,0,1,0},{1,0,0,1,0},{0,1,1,0,0}};
+  END;
+  IF c == "K" THEN
+    RETURN {{1,0,0,0,1},{1,0,0,1,0},{1,0,1,0,0},{1,1,0,0,0},{1,0,1,0,0},{1,0,0,1,0},{1,0,0,0,1}};
+  END;
+  IF c == "L" THEN
+    RETURN {{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0},{1,1,1,1,1}};
+  END;
+  IF c == "M" THEN
+    RETURN {{1,0,0,0,1},{1,1,0,1,1},{1,0,1,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1}};
+  END;
+  IF c == "N" THEN
+    RETURN {{1,0,0,0,1},{1,1,0,0,1},{1,0,1,0,1},{1,0,0,1,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1}};
+  END;
+  IF c == "O" THEN
+    RETURN {{0,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{0,1,1,1,0}};
+  END;
+  IF c == "P" THEN
+    RETURN {{1,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,1,1,1,0},{1,0,0,0,0},{1,0,0,0,0},{1,0,0,0,0}};
+  END;
+  IF c == "Q" THEN
+    RETURN {{0,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,1,0,1},{1,0,0,1,0},{0,1,1,0,1}};
+  END;
+  IF c == "R" THEN
+    RETURN {{1,1,1,1,0},{1,0,0,0,1},{1,0,0,0,1},{1,1,1,1,0},{1,0,1,0,0},{1,0,0,1,0},{1,0,0,0,1}};
+  END;
+  IF c == "S" THEN
+    RETURN {{0,1,1,1,1},{1,0,0,0,0},{1,0,0,0,0},{0,1,1,1,0},{0,0,0,0,1},{0,0,0,0,1},{1,1,1,1,0}};
+  END;
+  IF c == "T" THEN
+    RETURN {{1,1,1,1,1},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0}};
+  END;
+  IF c == "U" THEN
+    RETURN {{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{0,1,1,1,0}};
+  END;
+  IF c == "V" THEN
+    RETURN {{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{0,1,0,1,0},{0,0,1,0,0}};
+  END;
+  IF c == "W" THEN
+    RETURN {{1,0,0,0,1},{1,0,0,0,1},{1,0,0,0,1},{1,0,1,0,1},{1,0,1,0,1},{1,1,0,1,1},{1,0,0,0,1}};
+  END;
+  IF c == "X" THEN
+    RETURN {{1,0,0,0,1},{1,0,0,0,1},{0,1,0,1,0},{0,0,1,0,0},{0,1,0,1,0},{1,0,0,0,1},{1,0,0,0,1}};
+  END;
+  IF c == "Y" THEN
+    RETURN {{1,0,0,0,1},{1,0,0,0,1},{0,1,0,1,0},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0},{0,0,1,0,0}};
+  END;
+  IF c == "Z" THEN
+    RETURN {{1,1,1,1,1},{0,0,0,0,1},{0,0,0,1,0},{0,0,1,0,0},{0,1,0,0,0},{1,0,0,0,0},{1,1,1,1,1}};
+  END;
+  // Fallback: small empty rectangle
+  RETURN {{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0},{0,0,0,0,0}};
+END;
+
+// ============================================================
+// Draw a giant pixel-letter text
+// Each letter is a 5x7 bitmap, scaled x2 (10x14 px)
+// ============================================================
+// Renders a string as giant pixel letters: each glyph is a 5x7 bitmap
+// scaled by SCALE (2) into rectangles, with 1 px spacing between letters.
+DESSINE_TEXTE_GEANT(TXT, X0, Y0, COL)
+BEGIN
+  LOCAL I, J, K, L;
+  LOCAL px, py, SCALE;
+  LOCAL c;
+  LOCAL MAP;
+
+  SCALE := 2;
+  px := X0;
+
+  FOR I FROM 1 TO SIZE(TXT) DO
+    c := TXT(I);
+
+    // Each letter is a 7-row x 5-column bitmap
+    IF c == " " THEN
+      px := px + 3 * SCALE;
+    ELSE
+      MAP := LETTRE_MAP(c);
+      FOR J FROM 1 TO 7 DO
+        FOR K FROM 1 TO 5 DO
+          IF MAP(J, K) == 1 THEN
+            RECT_P(G1, px + (K-1)*SCALE, Y0 + (J-1)*SCALE,
+                       px + K*SCALE - 1, Y0 + J*SCALE - 1, COL);
+          END;
+        END;
+      END;
+      px := px + 6 * SCALE;   // 5 pixels + 1 space
+    END;
+  END;
+END;
+
+// ============================================================
+// ABOUT SCREEN - HP-PLUMBER
+// Centered title, harmonious colors
+// ============================================================
+// Draws the About/credits screen: starry night background, big pixel-art
+// "HP-PLUMBER" title, subtitle, scrolling/walking Mario, and the author
+// names revealed as Mario passes over them, plus a footer year.
+DESSINE_ABOUT(timer)
+BEGIN
+  LOCAL PX, PY, I;
+  LOCAL TX, TY;
+
+  DIMGROB_P(G1, 320, 240);
+
+  // Night-blue gradient background
+  RECT_P(G1, 0, 0, 320, 240, RGB(0, 0, 60));
+  RECT_P(G1, 0, 60, 320, 180, RGB(0, 0, 120));
+  RECT_P(G1, 0, 180, 320, 240, RGB(0, 0, 60));
+
+  // Stars
+  FOR I FROM 0 TO 30 DO
+    PIXON_P(G1, (I * 37) MOD 320, (I * 53) MOD 200, RGB(255, 255, 255));
+  END;
+
+  // ==========================================
+  // "HP-PLUMBER" title in big letters
+  // 10 letters x 14 px = 140 px, centered: x = 90
+  // Each letter: 12 px wide, 16 px tall
+  // ==========================================
+  TX := 90;
+  TY := 12;
+
+  // H (x=90)
+  RECT_P(G1, 90, 12, 92, 28, RGB(240, 240, 240));
+  RECT_P(G1, 100, 12, 102, 28, RGB(240, 240, 240));
+  RECT_P(G1, 92, 19, 100, 21, RGB(240, 240, 240));
+  // P (x=104)
+  RECT_P(G1, 104, 12, 106, 28, RGB(240, 240, 240));
+  RECT_P(G1, 106, 12, 112, 14, RGB(240, 240, 240));
+  RECT_P(G1, 106, 19, 112, 21, RGB(240, 240, 240));
+  RECT_P(G1, 110, 14, 112, 19, RGB(240, 240, 240));
+  // - (x=116)
+  RECT_P(G1, 116, 19, 122, 21, RGB(240, 240, 240));
+  // P (x=126)
+  RECT_P(G1, 126, 12, 128, 28, RGB(240, 240, 240));
+  RECT_P(G1, 128, 12, 134, 14, RGB(240, 240, 240));
+  RECT_P(G1, 128, 19, 134, 21, RGB(240, 240, 240));
+  RECT_P(G1, 132, 14, 134, 19, RGB(240, 240, 240));
+  // L (x=138)
+  RECT_P(G1, 138, 12, 140, 28, RGB(240, 240, 240));
+  RECT_P(G1, 138, 26, 146, 28, RGB(240, 240, 240));
+  // U (x=150)
+  RECT_P(G1, 150, 12, 152, 26, RGB(240, 240, 240));
+  RECT_P(G1, 158, 12, 160, 26, RGB(240, 240, 240));
+  RECT_P(G1, 152, 26, 158, 28, RGB(240, 240, 240));
+  // M (x=164)
+  RECT_P(G1, 164, 12, 166, 28, RGB(240, 240, 240));
+  RECT_P(G1, 176, 12, 178, 28, RGB(240, 240, 240));
+  RECT_P(G1, 166, 14, 168, 18, RGB(240, 240, 240));
+  RECT_P(G1, 174, 14, 176, 18, RGB(240, 240, 240));
+  RECT_P(G1, 168, 16, 174, 18, RGB(240, 240, 240));
+  // B (x=182)
+  RECT_P(G1, 182, 12, 184, 28, RGB(240, 240, 240));
+  RECT_P(G1, 184, 12, 190, 14, RGB(240, 240, 240));
+  RECT_P(G1, 184, 19, 190, 21, RGB(240, 240, 240));
+  RECT_P(G1, 184, 26, 190, 28, RGB(240, 240, 240));
+  RECT_P(G1, 188, 14, 190, 19, RGB(240, 240, 240));
+  RECT_P(G1, 188, 21, 190, 26, RGB(240, 240, 240));
+  // E (x=194)
+  RECT_P(G1, 194, 12, 202, 14, RGB(240, 240, 240));
+  RECT_P(G1, 194, 19, 200, 21, RGB(240, 240, 240));
+  RECT_P(G1, 194, 26, 202, 28, RGB(240, 240, 240));
+  RECT_P(G1, 194, 14, 196, 26, RGB(240, 240, 240));
+  // R (x=206)
+  RECT_P(G1, 206, 12, 208, 28, RGB(240, 240, 240));
+  RECT_P(G1, 208, 12, 214, 14, RGB(240, 240, 240));
+  RECT_P(G1, 212, 14, 214, 19, RGB(240, 240, 240));
+  RECT_P(G1, 208, 19, 214, 21, RGB(240, 240, 240));
+  RECT_P(G1, 208, 21, 210, 24, RGB(240, 240, 240));
+  RECT_P(G1, 210, 24, 214, 28, RGB(240, 240, 240));
+
+  // Subtitle
+  TEXTOUT_P("HP Prime Edition", G1, 120, 38, 1, RGB(180, 200, 255));
+
+  // Mario position (scrolls from -40 to 340)
+  PX := (timer * 3) MOD 380 - 40;
+  PY := 130;
+
+  // ==========================================
+  // "CHRISTOPHE" - light mint green
+  // 10 letters x 12 px = 120 px, centered: x = 100
+  // ==========================================
+
+  // C (x=100)
+  IF PX + 16 > 100 THEN
+    RECT_P(G1, 100, 55, 108, 57, RGB(120, 230, 180));
+    RECT_P(G1, 100, 65, 108, 67, RGB(120, 230, 180));
+    RECT_P(G1, 100, 57, 102, 65, RGB(120, 230, 180));
+  END;
+  // H (x=112)
+  IF PX + 16 > 112 THEN
+    RECT_P(G1, 112, 55, 114, 67, RGB(120, 230, 180));
+    RECT_P(G1, 120, 55, 122, 67, RGB(120, 230, 180));
+    RECT_P(G1, 114, 60, 120, 62, RGB(120, 230, 180));
+  END;
+  // R (x=124)
+  IF PX + 16 > 124 THEN
+    RECT_P(G1, 124, 55, 126, 67, RGB(120, 230, 180));
+    RECT_P(G1, 126, 55, 132, 57, RGB(120, 230, 180));
+    RECT_P(G1, 130, 57, 132, 61, RGB(120, 230, 180));
+    RECT_P(G1, 126, 61, 132, 63, RGB(120, 230, 180));
+    RECT_P(G1, 126, 63, 128, 65, RGB(120, 230, 180));
+    RECT_P(G1, 128, 65, 130, 67, RGB(120, 230, 180));
+  END;
+  // I (x=136)
+  IF PX + 16 > 136 THEN
+    RECT_P(G1, 136, 55, 144, 57, RGB(120, 230, 180));
+    RECT_P(G1, 139, 57, 141, 65, RGB(120, 230, 180));
+    RECT_P(G1, 136, 65, 144, 67, RGB(120, 230, 180));
+  END;
+  // S (x=148)
+  IF PX + 16 > 148 THEN
+    RECT_P(G1, 148, 55, 156, 57, RGB(120, 230, 180));
+    RECT_P(G1, 148, 57, 150, 61, RGB(120, 230, 180));
+    RECT_P(G1, 148, 60, 156, 62, RGB(120, 230, 180));
+    RECT_P(G1, 154, 61, 156, 65, RGB(120, 230, 180));
+    RECT_P(G1, 148, 65, 156, 67, RGB(120, 230, 180));
+  END;
+  // T (x=160)
+  IF PX + 16 > 160 THEN
+    RECT_P(G1, 160, 55, 168, 57, RGB(120, 230, 180));
+    RECT_P(G1, 163, 57, 165, 67, RGB(120, 230, 180));
+  END;
+  // O (x=172)
+  IF PX + 16 > 172 THEN
+    RECT_P(G1, 172, 55, 180, 57, RGB(120, 230, 180));
+    RECT_P(G1, 172, 65, 180, 67, RGB(120, 230, 180));
+    RECT_P(G1, 172, 57, 174, 65, RGB(120, 230, 180));
+    RECT_P(G1, 178, 57, 180, 65, RGB(120, 230, 180));
+  END;
+  // P (x=184)
+  IF PX + 16 > 184 THEN
+    RECT_P(G1, 184, 55, 186, 67, RGB(120, 230, 180));
+    RECT_P(G1, 186, 55, 192, 57, RGB(120, 230, 180));
+    RECT_P(G1, 186, 61, 192, 63, RGB(120, 230, 180));
+    RECT_P(G1, 190, 57, 192, 61, RGB(120, 230, 180));
+  END;
+  // H (x=196)
+  IF PX + 16 > 196 THEN
+    RECT_P(G1, 196, 55, 198, 67, RGB(120, 230, 180));
+    RECT_P(G1, 204, 55, 206, 67, RGB(120, 230, 180));
+    RECT_P(G1, 198, 60, 204, 62, RGB(120, 230, 180));
+  END;
+  // E (x=208)
+  IF PX + 16 > 208 THEN
+    RECT_P(G1, 208, 55, 216, 57, RGB(120, 230, 180));
+    RECT_P(G1, 208, 60, 214, 62, RGB(120, 230, 180));
+    RECT_P(G1, 208, 65, 216, 67, RGB(120, 230, 180));
+    RECT_P(G1, 208, 57, 210, 65, RGB(120, 230, 180));
+  END;
+
+  // ==========================================
+  // "NOCITO" - soft golden yellow
+  // 6 letters x 12 px = 72 px, centered: x = 124
+  // ==========================================
+
+  // N (x=124)
+  IF PX + 16 > 124 THEN
+    RECT_P(G1, 124, 80, 126, 92, RGB(255, 220, 130));
+    RECT_P(G1, 132, 80, 134, 92, RGB(255, 220, 130));
+    RECT_P(G1, 126, 82, 128, 86, RGB(255, 220, 130));
+    RECT_P(G1, 128, 86, 130, 89, RGB(255, 220, 130));
+    RECT_P(G1, 130, 89, 132, 92, RGB(255, 220, 130));
+  END;
+  // O (x=136)
+  IF PX + 16 > 136 THEN
+    RECT_P(G1, 136, 80, 144, 82, RGB(255, 220, 130));
+    RECT_P(G1, 136, 90, 144, 92, RGB(255, 220, 130));
+    RECT_P(G1, 136, 82, 138, 90, RGB(255, 220, 130));
+    RECT_P(G1, 142, 82, 144, 90, RGB(255, 220, 130));
+  END;
+  // C (x=148)
+  IF PX + 16 > 148 THEN
+    RECT_P(G1, 148, 80, 156, 82, RGB(255, 220, 130));
+    RECT_P(G1, 148, 90, 156, 92, RGB(255, 220, 130));
+    RECT_P(G1, 148, 82, 150, 90, RGB(255, 220, 130));
+  END;
+  // I (x=160)
+  IF PX + 16 > 160 THEN
+    RECT_P(G1, 160, 80, 168, 82, RGB(255, 220, 130));
+    RECT_P(G1, 163, 82, 165, 90, RGB(255, 220, 130));
+    RECT_P(G1, 160, 90, 168, 92, RGB(255, 220, 130));
+  END;
+  // T (x=172)
+  IF PX + 16 > 172 THEN
+    RECT_P(G1, 172, 80, 180, 82, RGB(255, 220, 130));
+    RECT_P(G1, 175, 82, 177, 92, RGB(255, 220, 130));
+  END;
+  // O (x=184)
+  IF PX + 16 > 184 THEN
+    RECT_P(G1, 184, 80, 192, 82, RGB(255, 220, 130));
+    RECT_P(G1, 184, 90, 192, 92, RGB(255, 220, 130));
+    RECT_P(G1, 184, 82, 186, 90, RGB(255, 220, 130));
+    RECT_P(G1, 190, 82, 192, 90, RGB(255, 220, 130));
+  END;
+
+  // ==========================================
+  // Mario (drawn over the text)
+  // ==========================================
+  IF PX > -20 AND PX < 320 THEN
+    // Cap
+    RECT_P(G1, PX, PY, PX+14, PY+3, RGB(216, 40, 0));
+    RECT_P(G1, PX, PY+2, PX+15, PY+5, RGB(216, 40, 0));
+    RECT_P(G1, PX+10, PY+2, PX+16, PY+5, RGB(180, 30, 0));
+    // Face
+    RECT_P(G1, PX+2, PY+5, PX+13, PY+11, RGB(252, 188, 136));
+    RECT_P(G1, PX+2, PY+6, PX+4, PY+10, RGB(80, 40, 10));
+    RECT_P(G1, PX+10, PY+6, PX+13, PY+8, RGB(80, 40, 10));
+    RECT_P(G1, PX+9, PY+6, PX+11, PY+9, RGB(0, 0, 0));
+    RECT_P(G1, PX+4, PY+9, PX+12, PY+11, RGB(80, 40, 10));
+    // Body
+    RECT_P(G1, PX+1, PY+11, PX+13, PY+15, RGB(216, 40, 0));
+    PIXON_P(G1, PX+3, PY+13, RGB(255, 216, 0));
+    PIXON_P(G1, PX+10, PY+13, RGB(255, 216, 0));
+    // Overalls
+    RECT_P(G1, PX+2, PY+15, PX+12, PY+18, RGB(0, 80, 192));
+    // Shoes (animation)
+    IF (timer MOD 10) < 5 THEN
+      RECT_P(G1, PX, PY+17, PX+5, PY+20, RGB(80, 40, 0));
+      RECT_P(G1, PX+8, PY+17, PX+14, PY+20, RGB(80, 40, 0));
+    ELSE
+      RECT_P(G1, PX+1, PY+17, PX+6, PY+20, RGB(80, 40, 0));
+      RECT_P(G1, PX+7, PY+16, PX+14, PY+20, RGB(80, 40, 0));
+    END;
+  END;
+
+  // Footer
+    TEXTOUT_P(T("ABOUT_YEAR") + "   " + APP_VERSION, G1, 95, 215, 1, RGB(200, 200, 200));
+END;
+
+
+// "Help" view: shows the About screen in a loop until key 4 or ENTER.
+VIEW "Help", ABOUT()
+BEGIN
+  LOCAL k, t;
+  t := 0;
+  REPEAT
+    t := t + 1;
+    DESSINE_ABOUT(t);
+    BLIT_P(G0, G1);
+    k := GETKEY();
+    WHILE k != -1 DO k := GETKEY(); END;
+    IF ISKEYDOWN(4) == 1 OR ISKEYDOWN(30) == 1 THEN
+      STARTVIEW(1, 1);
+      RETURN;
+    END;
+    WAIT(0.03);
+  UNTIL 0;
+END;
+
+
+
+// ============================================================
+// VIEWS
+// ============================================================
+// Main app entry view ("Symb"). Runs the title screen loop, allows entering
+// the About screen (key 5) or Help (key 4/3), and on ENTER starts a game
+// session that iterates levels via NIVEAU() until game over or victory.
+VIEW "Symb", START()
+BEGIN
+  LOCAL k, t, lvl, next, inAbout, at;
+  InitGlobals();
+  LANGUE := GetLangue();
+
+  WHILE 1 DO
+    t := 0;
+    inAbout := 0;
+    at := 0;
+
+    // FIX: wait for keys to be released before the title
+    WHILE ISKEYDOWN(30) == 1 DO WAIT(0.02); END;
+    WHILE ISKEYDOWN(5) == 1 DO WAIT(0.02); END;
+    WHILE ISKEYDOWN(4) == 1 DO WAIT(0.02); END;
+    WHILE ISKEYDOWN(3) == 1 DO WAIT(0.02); END;
+
+    REPEAT
+      IF inAbout == 1 THEN
+        at := at + 1;
+        DESSINE_ABOUT(at);
+        BLIT_P(G0, G1);
+        k := GETKEY();
+        WHILE k != -1 DO k := GETKEY(); END;
+        IF ISKEYDOWN(4) == 1 OR ISKEYDOWN(30) == 1 THEN
+          WHILE ISKEYDOWN(4) == 1 DO WAIT(0.02); END;
+          WHILE ISKEYDOWN(30) == 1 DO WAIT(0.02); END;
+          inAbout := 0;
+          // FIX: reset title timer after about
+          t := 0;
+        END;
+      ELSE
+        t := t + 1;
+        DrawTitleScreen(t);
+        BLIT_P(G0, G1);
+        k := GETKEY();
+        WHILE k != -1 DO k := GETKEY(); END;
+
+        // Key 5: About
+        IF ISKEYDOWN(5) == 1 THEN
+          WHILE ISKEYDOWN(5) == 1 DO WAIT(0.02); END;
+          inAbout := 1;
+          at := 0;
+        END;
+
+        // ENTER: start the game
+        IF ISKEYDOWN(30) == 1 THEN
+          WHILE ISKEYDOWN(30) == 1 DO WAIT(0.02); END;
+
+          lvl := 1;
+          WHILE lvl > 0 DO
+            next := NIVEAU(lvl);
+            IF next == -1 THEN
+              DESSINE_GAME_WON();
+              WAIT(0);
+              WHILE GETKEY() == -1 DO WAIT(0.05); END;
+              // FIX: wait for key release
+              WHILE ISKEYDOWN(30) == 1 DO WAIT(0.02); END;
+              lvl := 0;
+            ELSE
+              IF next == -2 THEN
+                IF lvl >= MAX_LEVEL THEN
+                  DESSINE_GAME_WON();
+                  WAIT(0);
+                  WHILE GETKEY() == -1 DO WAIT(0.05); END;
+                  // FIX: wait for key release
+                  WHILE ISKEYDOWN(30) == 1 DO WAIT(0.02); END;
+                  lvl := 0;
+                ELSE
+                  lvl := lvl + 1;
+                  IF lvl >= 3 THEN
+                    GENERATE_LEVEL(lvl);
+                    GENERATE_PICKUPS(lvl);
+                  END;
+                END;
+              ELSE
+                IF next == 0 THEN
+                  DESSINE_GAME_OVER();
+                  WAIT(0);
+                  WHILE GETKEY() == -1 DO WAIT(0.05); END;
+                  // FIX: wait for key release
+                  WHILE ISKEYDOWN(30) == 1 DO WAIT(0.02); END;
+                  lvl := 0;
+                ELSE
+                  lvl := next;
+                END;
+              END;
+            END;
+          END;
+        END;
+
+        // Key 4 or 3: Help
+        IF ISKEYDOWN(4) == 1 OR ISKEYDOWN(3) == 1 THEN
+          WHILE ISKEYDOWN(4) == 1 DO WAIT(0.02); END;
+          WHILE ISKEYDOWN(3) == 1 DO WAIT(0.02); END;
+          AFFICHE_HELP();
+          // FIX: reset title timer after help
+          t := 0;
+        END;
+      END;
+
+      WAIT(0.03);
+    UNTIL 0;
+  END;
+END;
+
+
+// "Setup" view: input form letting the player set starting lives and language.
+// Clamps lives to [1, 9] and writes the chosen LANGUE back to the global.
+VIEW "Setup", SETUP()
+BEGIN
+  LOCAL ok;
+ok := INPUT({{userLives, [0]}, {LANGUE, {"Français", "English", "Español"}}},
+            T("SETUP_TITLE"),
+            {T("SETUP_LIVES"), T("SETUP_LANG")},
+            {T("SETUP_LIVES_DESC"), ""},
+            {1, 1},
+            {userLives, LANGUE});
+  IF ok THEN
+    userLives := FLOOR(userLives);
+    IF userLives < 1 THEN userLives := 3; END;
+    IF userLives > 9 THEN userLives := 9; END;
+  END;
+  FREEZE;
+END;
+
+// "Info" view: shows the help/controls screen directly on G0, then returns
+// to view 1 (the START / Symb view).
+VIEW "Info", HELP()
+BEGIN
+  LOCAL k;
+  RECT_P(G0, 0, 0, 320, 240, RGB(255, 255, 255));
+  TEXTOUT_P(T("HELP_TITLE"), G0, 10, 10, 2, RGB(0, 0, 128));
+  TEXTOUT_P(T("HELP_LEFT"),  G0, 20, 50, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_RIGHT"), G0, 20, 70, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_JUMP"),  G0, 20, 90, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_QUIT"),  G0, 20, 110, 2, RGB(0, 0, 0));
+  TEXTOUT_P(T("HELP_SYMB"),  G0, 20, 140, 2, RGB(0, 0, 128));
+  TEXTOUT_P(T("HELP_PLOT"),  G0, 20, 160, 2, RGB(0, 0, 128));
+  TEXTOUT_P(T("HELP_HINT"),  G0, 20, 210, 1, RGB(128, 0, 0));
+
+  // Version (bottom-right corner)
+  TEXTOUT_P(APP_VERSION, G0, 270, 220, 1, RGB(120, 120, 120));
+
+  FREEZE;
+  k := WAIT(0);
+  STARTVIEW(1, 1);
+  FREEZE;
+END;
