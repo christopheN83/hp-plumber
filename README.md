@@ -28,3 +28,10 @@ A Mario-style platformer for the **HP Prime** graphing calculator, written entir
 
 ## License
 MIT — see `LICENSE` for details.
+
+<img width="621" height="419" alt="image" src="https://github.com/user-attachments/assets/6d2f3af0-df25-4951-9b25-293da4379f07" />
+
+<img width="315" height="235" alt="image" src="https://github.com/user-attachments/assets/5e87b154-43bc-4155-aeaf-b4f46c0748c7" />
+
+<img width="628" height="471" alt="image" src="https://github.com/user-attachments/assets/7ca45ca1-3c2a-4bb4-98e1-21f1286ce7d5" />
+
